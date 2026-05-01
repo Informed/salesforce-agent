@@ -94,15 +94,19 @@ The Slack Bolt app in `salesforce-agent` stays separate: after deploy, copy the 
 
 ### Docker build failed in CodeBuild (`COPY … not found`)
 
-AgentCore uploads **only the AgentCore project directory** to CodeBuild. The build runs `docker build … .` with **context = that directory**, so paths like `COPY scripts/sf-query.js` must exist **there**, not only under `salesforce-agent/`.
+AgentCore uploads the **harness bundle** for the directory in `agentcore/agentcore.json` → `harnesses[0].path` (for example `app/sfHarness00`), **not** the whole git repo and not necessarily the AgentCore project root. The Docker build context is **that folder**, so `COPY package.json` / `COPY scripts/...` must exist **inside it**.
 
-**Fix:** from this repo run:
+### Harness name length (API `400` validation)
+
+The control plane builds a harness identifier like `{projectName}_{harnessName}`. It must match **`[a-zA-Z][a-zA-Z0-9_]{0,39}`** — at most **40 characters** total. Long project + harness names (for example `salesforceAgent00_salesForceAgentHarness00`) exceed that and return **`400` validation error**. Fix by shortening **`harnesses[].name`** (and matching `harness.json` / app folder) or the **project `name`** in `agentcore.json`.
+
+**Fix:** from the `salesforce-agent` repo run:
 
 ```bash
 ./scripts/sync-harness-build-to-agentcore.sh /path/to/your-agentcore-project
 ```
 
-Then `cd` that project and run `agentcore deploy` again. In the wizard, prefer Dockerfile **`./Dockerfile`** in that project after syncing. See [`agentcore-harness/README.md`](../agentcore-harness/README.md).
+The script reads `harnesses[0].path` and copies `Dockerfile`, `package.json`, `package-lock.json`, and `scripts/sf-query.js` into that directory. Then `cd` the AgentCore project and run `agentcore deploy` again. See [`agentcore-harness/README.md`](../agentcore-harness/README.md).
 
 ### CodeBuild: `429 Too Many Requests` pulling `node:…` from Docker Hub
 

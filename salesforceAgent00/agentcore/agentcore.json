@@ -16,8 +16,8 @@
   "policyEngines": [],
   "harnesses": [
     {
-      "name": "salesForceAgentHarness00",
-      "path": "app/salesForceAgentHarness00"
+      "name": "sfHarness00",
+      "path": "app/sfHarness00"
     }
   ],
   "configBundles": [],

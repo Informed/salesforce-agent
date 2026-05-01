@@ -10,7 +10,7 @@ CodeBuild runs something equivalent to:
 docker build -f Dockerfile .
 ```
 
-The build **context (`.`)** is **only your AgentCore CLI project directory** (what gets uploaded for deploy), **not** the `salesforce-agent` monorepo. A Dockerfile path pointing at `.../salesforce-agent/agentcore-harness/Dockerfile` still uses **`.` = the AgentCore project root**, so `COPY package.json` and `COPY scripts/...` look for files **inside that project** — where they do not exist unless you copy them there first.
+The build **context (`.`)** is the harness folder from **`agentcore/agentcore.json` → `harnesses[0].path`** (for example `app/sfHarness00`), **not** the AgentCore project root and not the `salesforce-agent` repo. `COPY package.json` and `COPY scripts/...` must exist **under that path**. The sync script reads `agentcore.json` and copies files into the correct directory.
 
 ## Before every `agentcore deploy`
 

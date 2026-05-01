@@ -1,3 +1,19 @@
 {
-  "targets": {}
+  "targets": {
+    "default": {
+      "resources": {
+        "harnesses": {
+          "sfHarness00": {
+            "harnessId": "salesforceAgent00_sfHarness00-Q4bQqRY4HK",
+            "harnessArn": "arn:aws:bedrock-agentcore:us-west-2:299589795233:harness/salesforceAgent00_sfHarness00-Q4bQqRY4HK",
+            "roleArn": "arn:aws:iam::299589795233:role/salesforceAgent00_sfHarness00",
+            "status": "READY",
+            "agentRuntimeArn": "arn:aws:bedrock-agentcore:us-west-2:299589795233:runtime/harness_salesforceAgent00_sfHarness00-5G9dpO4iuQ",
+            "configHash": "7db660b43fa14840"
+          }
+        },
+        "stackName": "AgentCore-salesforceAgent00-default"
+      }
+    }
+  }
 }

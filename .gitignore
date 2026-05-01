@@ -8,6 +8,7 @@
 # Logs
 logs/
 log-events-viewer-result.csv
+log-events-viewer-result*.csv
 
 # macOS
 .DS_Store
