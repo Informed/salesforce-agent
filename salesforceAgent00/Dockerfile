@@ -1,4 +1,4 @@
-# Amazon Bedrock AgentCore Harness — custom environment (image platform set by AgentCore/CodeBuild).
+# Amazon Bedrock AgentCore Harness — custom environment (linux/arm64).
 #
 # IMPORTANT: `agentcore deploy` uploads only your AgentCore project folder to CodeBuild and runs
 #   docker build -f Dockerfile .

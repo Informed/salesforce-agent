@@ -1,9 +1,12 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "files": {
+    "includes": ["**", "!salesforceAgent00"]
+  },
   "formatter": {
     "enabled": true,
     "formatWithErrors": false,
-    "includes": ["**"],
+    "includes": ["**", "!salesforceAgent00"],
     "attributePosition": "auto",
     "indentStyle": "space",
     "indentWidth": 2,

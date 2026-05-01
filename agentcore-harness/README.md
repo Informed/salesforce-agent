@@ -1,23 +1,59 @@
 # Harness custom image
 
-This Dockerfile is for **AgentCore managed harness** when you choose a custom environment.
+This folder is a **standalone Docker build context** for the AgentCore harness (Node + `sf-query.js` + minimal npm deps).
 
-**Scaffolding the harness:** run `agentcore create` with **no flags** (or plain `agentcore`) so the CLI stays in **interactive** mode and asks for Harness type, Dockerfile path, and so on. Passing `--name` / `--model-provider` alone skips those prompts. After the CLI creates a project folder, run `agentcore deploy` **from inside that folder**, not from this repo root.
+## Why `agentcore deploy` failed with “package-lock.json / scripts/sf-query.js not found”
 
-- **Path to enter in the wizard:** from the parent repo directory, use  
-  `agentcore-harness/Dockerfile`  
-  or an absolute path such as  
-  `/full/path/to/salesforce-agent/agentcore-harness/Dockerfile`.
-
-- **Platform:** `linux/arm64` (required for AgentCore Runtime / harness).
-
-- **Contents:** Node.js plus `scripts/sf-query.js` and production npm dependencies from the root `package.json`.
-
-Configure `SF_*` variables on the harness (secrets / env), not in the image. For multiline keys in env vars, use `SF_PRIVATE_KEY_BODY` (see `scripts/sf-query.js`).
-
-Build locally to verify:
+CodeBuild runs something equivalent to:
 
 ```bash
-cd "$(git rev-parse --show-toplevel)"
-docker build --platform linux/arm64 -f agentcore-harness/Dockerfile -t salesforce-harness:local .
+docker build -f Dockerfile .
 ```
+
+The build **context (`.`)** is **only your AgentCore CLI project directory** (what gets uploaded for deploy), **not** the `salesforce-agent` monorepo. A Dockerfile path pointing at `.../salesforce-agent/agentcore-harness/Dockerfile` still uses **`.` = the AgentCore project root**, so `COPY package.json` and `COPY scripts/...` look for files **inside that project** — where they do not exist unless you copy them there first.
+
+## Before every `agentcore deploy`
+
+From the **salesforce-agent** repo:
+
+```bash
+./scripts/sync-harness-build-to-agentcore.sh /path/to/your-agentcore-project
+```
+
+Example:
+
+```bash
+./scripts/sync-harness-build-to-agentcore.sh ~/work/mysalesforceagent
+cd ~/work/mysalesforceagent
+agentcore deploy
+```
+
+In `agentcore create`, for the Dockerfile use **`./Dockerfile`** inside that same project directory (after sync), not only a path back into this repo.
+
+## Interactive wizard reminder
+
+Run `agentcore create` **with no flags** (or plain `agentcore`) so the CLI asks for Harness, Dockerfile, etc. Passing `--name` skips prompts.
+
+## Keep `sf-query.js` in sync
+
+Canonical script: [`../scripts/sf-query.js`](../scripts/sf-query.js). After editing it:
+
+```bash
+npm run sync:agentcore-harness
+```
+
+Then re-run the sync script to your AgentCore project before the next image build.
+
+## Local Docker check (optional)
+
+From **this** directory (where `Dockerfile`, `package.json`, and `scripts/` exist):
+
+```bash
+docker build -f Dockerfile -t salesforce-harness:local .
+```
+
+Use `--platform linux/arm64` locally only if your machine defaults to a different architecture and you want to match AgentCore.
+
+Configure `SF_*` on the harness at runtime, not in the image.
+
+**Docker Hub rate limits:** the Dockerfile uses `public.ecr.aws/docker/library/node` so CodeBuild is not subject to anonymous [Docker Hub pull limits](https://www.docker.com/increase-rate-limit). If you switch back to `docker.io/library/node`, expect occasional `429` failures on shared CI IPs.

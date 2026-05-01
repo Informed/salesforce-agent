@@ -92,6 +92,45 @@ agentcore deploy
 
 The Slack Bolt app in `salesforce-agent` stays separate: after deploy, copy the harness **ARN** into `HARNESS_ARN` in this repo’s `.env`.
 
+### Docker build failed in CodeBuild (`COPY … not found`)
+
+AgentCore uploads **only the AgentCore project directory** to CodeBuild. The build runs `docker build … .` with **context = that directory**, so paths like `COPY scripts/sf-query.js` must exist **there**, not only under `salesforce-agent/`.
+
+**Fix:** from this repo run:
+
+```bash
+./scripts/sync-harness-build-to-agentcore.sh /path/to/your-agentcore-project
+```
+
+Then `cd` that project and run `agentcore deploy` again. In the wizard, prefer Dockerfile **`./Dockerfile`** in that project after syncing. See [`agentcore-harness/README.md`](../agentcore-harness/README.md).
+
+### CodeBuild: `429 Too Many Requests` pulling `node:…` from Docker Hub
+
+If CloudWatch / CodeBuild shows:
+
+`unexpected status from GET request to https://registry-1.docker.io/... 429 Too Many Requests`  
+`toomanyrequests: You have reached your unauthenticated pull rate limit`
+
+CodeBuild is pulling **`docker.io/library/node`** anonymously and Docker Hub throttled the account/IP. **Fix:** base the image on **[AWS Public ECR’s copy of the official Node image](https://gallery.ecr.aws/docker/library/node)** instead of Docker Hub, for example:
+
+`FROM public.ecr.aws/docker/library/node:22-bookworm-slim`
+
+This repo’s [`agentcore-harness/Dockerfile`](../agentcore-harness/Dockerfile) uses that `FROM`. Re-run [`scripts/sync-harness-build-to-agentcore.sh`](../scripts/sync-harness-build-to-agentcore.sh) into your AgentCore project, then deploy again.
+
+(Alternatives: Docker Hub paid login inside CodeBuild, or vendor a base image into your own ECR.)
+
+### Reading `deploy-*.log` when CloudFormation says “CodeBuild build failed”
+
+Deploy logs under `agentcore/.cli/logs/deploy/` only show **CloudFormation events**. The line:
+
+`CodeBuild build failed … Logs: https://console.aws.amazon.com/cloudwatch/...`
+
+means the **container image build** step failed. Open that **CloudWatch → CodeBuild** log stream to see the real error (for example `COPY` missing files, `npm ci` lockfile mismatch, or `exec format error` for wrong CPU architecture).
+
+After a failed deploy, the stack can sit in **`ROLLBACK_COMPLETE`**. CDK may delete and recreate it on the next run (see your log around “Deleting … before attempting to re-create”). If deploy still complains about the stack, delete it manually:  
+`aws cloudformation delete-stack --stack-name AgentCore-<project>-default --region <region>`  
+then deploy again.
+
 ### Fully non-interactive alternative
 
 If you need CI or a repeatable script, use flags only (no prompts), per `agentcore help create` and [upstream command docs](https://github.com/aws/agentcore-cli/blob/main/docs/commands.md). That path requires supplying every option you care about on the command line (or accepting `--defaults`).
