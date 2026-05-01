@@ -1,14 +1,16 @@
 {
   "display_information": {
-    "name": "salesforce-agent"
+    "name": "salesforce-agent",
+    "description": "Query your Salesforce org in real time — opportunities, accounts, pipeline, and more.",
+    "long_description": "Hey there \ud83d\udc4b I'm your Salesforce assistant.\n\nI can query your Salesforce org in real time and answer questions about opportunities, accounts, pipeline, and more.\n\nHow to use me:\n\u2022 Send me a direct message to ask a question\n\u2022 Mention me in a channel with @salesforce-agent and your question\n\nThings I can do:\n\u2022 Show open pipeline and opportunity details\n\u2022 Count accounts, opportunities, or other records\n\u2022 Find deals closing this month/quarter\n\u2022 Look up opportunities by owner, stage, or amount\n\u2022 Summarize recently closed-won deals"
   },
   "features": {
     "assistant_view": {
-      "assistant_description": "Hi, I am an agent built using Bolt for JavaScript. I am here to help you out!",
+      "assistant_description": "I can query your Salesforce org in real time and answer questions about opportunities, accounts, pipeline, and more.",
       "suggested_prompts": []
     },
     "app_home": {
-      "home_tab_enabled": true,
+      "home_tab_enabled": false,
       "messages_tab_enabled": true,
       "messages_tab_read_only_enabled": false
     },
@@ -59,7 +61,6 @@
     "event_subscriptions": {
       "request_url": "https://ngrok-free.app/slack/events",
       "bot_events": [
-        "app_home_opened",
         "app_mention",
         "assistant_thread_started",
         "message.channels",
