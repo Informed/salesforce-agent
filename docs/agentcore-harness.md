@@ -53,24 +53,73 @@ The **system instructions** sent from the Slack app are duplicated in [`agent/sy
 
 ## One-time harness setup (CLI)
 
-Preview CLI (from AWS docs):
+Install the preview CLI (from [AWS harness get started](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/harness-get-started.html)):
 
 ```bash
 npm install -g @aws/agentcore@preview
-agentcore create --name mysalesforceagent --model-provider bedrock
-# In the wizard, choose Harness as the project type and configure model, memory, tools, and environment.
+```
+
+### Interactive wizard (recommended)
+
+The AgentCore CLI only walks you through **Harness vs Runtime, Dockerfile path, memory, tools,** etc. in **interactive** mode. Any flag marked as non-interactive (including passing **`--name`** or **`--model-provider`**) switches to **scripted mode**, which skips those prompts and scaffolds with defaults instead.
+
+Run **either**:
+
+```bash
+agentcore create
+```
+
+with **no arguments**, **or** launch the full terminal UI:
+
+```bash
+agentcore
+```
+
+and choose create from there. In the wizard, pick **Harness**, **Bedrock**, **custom environment**, then point the Dockerfile question at this repo’s file, for example:
+
+`../salesforce-agent/agentcore-harness/Dockerfile`
+
+if your new project sits next to this repo, **or** an absolute path to [`agentcore-harness/Dockerfile`](../agentcore-harness/Dockerfile).
+
+### Where `deploy` and `dev` run
+
+`agentcore create` writes a **new project directory** (for example `mysalesforceagent/`) containing `agentcore/agentcore.json`, CDK, and generated app code. **Always run `agentcore deploy`, `agentcore dev`, and `agentcore invoke` from inside that directory**, not from the `salesforce-agent` repo root:
+
+```bash
+cd mysalesforceagent
 agentcore deploy
 ```
 
-After deploy, copy the harness **ARN** into `HARNESS_ARN` for the Slack app.
+The Slack Bolt app in `salesforce-agent` stays separate: after deploy, copy the harness **ARN** into `HARNESS_ARN` in this repo’s `.env`.
 
-Local iteration:
+### Fully non-interactive alternative
+
+If you need CI or a repeatable script, use flags only (no prompts), per `agentcore help create` and [upstream command docs](https://github.com/aws/agentcore-cli/blob/main/docs/commands.md). That path requires supplying every option you care about on the command line (or accepting `--defaults`).
+
+### Local iteration
 
 ```bash
+cd mysalesforceagent
 agentcore dev
 ```
 
 Use the agent inspector to validate prompts and tools before wiring Slack.
+
+### Wizard cheat sheet (Tools, Authentication, Network, …)
+
+Use this for a **first working** Slack + Salesforce harness; add complexity only when you have a concrete requirement.
+
+| Area | What to choose | Why |
+|------|----------------|-----|
+| **Tools** (Browser, Code Interpreter, Gateway, MCP, …) | **Skip / none** at first | Your [`agentcore-harness/Dockerfile`](../agentcore-harness/Dockerfile) already has **Node** and **`scripts/sf-query.js`**. The harness can run **shell** in the session for SOQL. Add **Browser** only if the agent must drive the web. Add **Code Interpreter** only if you want AWS’s managed Python sandbox in addition to your image. Add **Gateway / MCP** when you move Salesforce behind a proper tool API instead of `sf-query.js`. |
+| **Authentication** (inbound OAuth, Identity, …) | **Skip inbound OAuth** for the first setup | The Slack app calls `InvokeHarness` with **IAM (SigV4)**. That path does **not** propagate each Slack user into AgentCore Identity the way a **Bearer JWT** inbound flow does ([harness security](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/harness-security.html)). Turn on inbound OAuth later only if tools must use **per-user** tokens (e.g. Salesforce as the end user). |
+| **Execution role** (Bedrock, logs, ECR, …) | **Accept what the wizard / CDK generates**, then tighten | The role must let the harness **invoke your Bedrock model**, **pull your image from ECR** (if applicable), and **write logs/traces**. Follow AWS’s [harness execution role policy](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/harness-security.html#harness-execution-role-policy) when you trim permissions. |
+| **Network** | **Public** first | Salesforce and Bedrock public endpoints work from the default harness network. Pick **VPC** only if login/API traffic must go through **private connectivity** (corporate proxy, IP restrictions, private Salesforce integrations). You will need **subnets** and **security groups** with egress to Salesforce HTTPS and the Bedrock / AgentCore endpoints your org uses. |
+| **Memory** | **None** or **short-term** | **Short-term** helps within a live harness session. This repo already sends a stable **`runtimeSessionId` per Slack thread** so turns in the same thread reuse the same harness session when AWS still has it. Use **long-term** AgentCore Memory only if you need knowledge across sessions beyond Slack threading. |
+| **Model** | A Bedrock model you are **allowed to use in that region** | Start with a smaller/cheaper model for wiring and tests; switch to a larger model once everything works. |
+| **Limits** (iterations, timeouts, tokens) | **Defaults** | Increase only if the agent legitimately needs more time; decrease if runs are too slow or expensive. |
+
+If a prompt is unclear, prefer **the smallest option** (no extra tools, public network, no OAuth). You can **`agentcore deploy` again** after editing `agentcore/agentcore.json` (or the wizard’s follow-up `add` commands) when you add Browser, VPC, or Gateway later.
 
 ## Deploy and update
 

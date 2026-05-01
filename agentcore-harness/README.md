@@ -2,6 +2,8 @@
 
 This Dockerfile is for **AgentCore managed harness** when you choose a custom environment.
 
+**Scaffolding the harness:** run `agentcore create` with **no flags** (or plain `agentcore`) so the CLI stays in **interactive** mode and asks for Harness type, Dockerfile path, and so on. Passing `--name` / `--model-provider` alone skips those prompts. After the CLI creates a project folder, run `agentcore deploy` **from inside that folder**, not from this repo root.
+
 - **Path to enter in the wizard:** from the parent repo directory, use  
   `agentcore-harness/Dockerfile`  
   or an absolute path such as  

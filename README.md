@@ -97,7 +97,7 @@ npm install
 
 ### Amazon Bedrock AgentCore Harness
 
-1. Create and deploy a harness with the [AgentCore CLI (preview)](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/harness-get-started.html): `npm install -g @aws/agentcore@preview`, then `agentcore create` / `agentcore deploy`.
+1. Create and deploy a harness with the [AgentCore CLI (preview)](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/harness-get-started.html): `npm install -g @aws/agentcore@preview`, then run **`agentcore create` with no flags** (so the wizard runs). **`agentcore deploy`** must be run **inside the new folder** the CLI creates, not in this repo’s root — see [docs/agentcore-harness.md](docs/agentcore-harness.md#one-time-harness-setup-cli).
 2. Copy the harness ARN into `.env` as `HARNESS_ARN` (see [`.env.sample`](.env.sample)).
 3. Configure AWS credentials for the Bolt process (profile, environment variables, or IAM role) so it can call `InvokeHarness` in the harness region.
 
