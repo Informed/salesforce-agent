@@ -37,7 +37,6 @@ export async function handleAppMentioned({ client, context, event, logger, say, 
       ],
     });
 
-    // Get session ID for conversation context
     const existingSessionId = sessionStore.getSession(channelId, threadTs);
 
     // Run the agent with deps for tool access
@@ -50,7 +49,6 @@ export async function handleAppMentioned({ client, context, event, logger, say, 
     const feedbackBlocks = buildFeedbackBlocks();
     await streamer.stop({ blocks: feedbackBlocks });
 
-    // Store agent ID for conversation continuity
     if (newAgentId) {
       sessionStore.setSession(channelId, threadTs, newAgentId);
     }

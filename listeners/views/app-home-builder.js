@@ -19,7 +19,7 @@ export function buildAppHomeView(installUrl = null, isConnected = false) {
       text: {
         type: 'mrkdwn',
         text:
-          "I can query your Salesforce org in real time and answer questions about opportunities, " +
+          'I can query your Salesforce org in real time and answer questions about opportunities, ' +
           'accounts, pipeline, and more.\n\n' +
           '*How to use me:*\n' +
           '\u2022 Send me a *direct message* to ask a question\n' +

@@ -1,6 +1,8 @@
-# Starter Agent for Slack (Bolt for JavaScript and Claude Agent SDK)
+# Salesforce Slack agent (Bolt + Amazon Bedrock AgentCore Harness)
 
-A minimal starter template for building AI-powered Slack agents with [Bolt for JavaScript](https://docs.slack.dev/tools/bolt-js/) and the [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview) using models from [Anthropic](https://www.anthropic.com). Works with the [Slack MCP Server](https://github.com/slackapi/slack-mcp-server) to search messages, read channels, send messages, and manage canvases — all from within your agent.
+A Slack app built with [Bolt for JavaScript](https://docs.slack.dev/tools/bolt-js/) that sends user messages to an [Amazon Bedrock AgentCore managed harness](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/harness.html) via the AWS SDK (`InvokeHarness`). It can work with the [Slack MCP Server](https://github.com/slackapi/slack-mcp-server) for Slack-side tools when enabled.
+
+**Operations guide:** [docs/agentcore-harness.md](docs/agentcore-harness.md) (architecture, IAM, deploy, and ongoing management).
 
 ## App Overview
 
@@ -93,17 +95,13 @@ npm install
 
 ## Providers
 
-### Anthropic Setup
+### Amazon Bedrock AgentCore Harness
 
-This app uses Claude through the Claude Agent SDK.
+1. Create and deploy a harness with the [AgentCore CLI (preview)](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/harness-get-started.html): `npm install -g @aws/agentcore@preview`, then `agentcore create` / `agentcore deploy`.
+2. Copy the harness ARN into `.env` as `HARNESS_ARN` (see [`.env.sample`](.env.sample)).
+3. Configure AWS credentials for the Bolt process (profile, environment variables, or IAM role) so it can call `InvokeHarness` in the harness region.
 
-1. Create an API key from your [Anthropic dashboard](https://console.anthropic.com/settings/keys).
-2. Rename `.env.sample` to `.env`.
-3. Save the Anthropic API key to `.env`:
-
-```sh
-ANTHROPIC_API_KEY=YOUR_ANTHROPIC_API_KEY
-```
+Full checklist (caller IAM, execution role, Salesforce in the harness, session ids): [docs/agentcore-harness.md](docs/agentcore-harness.md).
 
 ## Development
 
@@ -284,13 +282,11 @@ Every incoming request is routed to a "listener". This directory groups each lis
 
 ### `/agent`
 
-The `agent.js` file configures the Claude Agent SDK with a system prompt, tools registered via an MCP server, and a `runAgent()` async function that handles sending queries and collecting responses.
-
-Tools that need Slack API access (emoji reactions) are created as closures inside `runAgent()` that capture the dependencies. Add your own tools to customize the agent for your use case.
+[`agent/agent.js`](agent/agent.js) implements `runAgent()`: it builds a system prompt (Slack behavior + Salesforce guidance), calls `InvokeHarness` through [`agent/harness-client.js`](agent/harness-client.js), and streams text deltas into a single reply string. Optional emoji reactions use Slack `deps` passed from listeners.
 
 ### `/thread-context`
 
-The `store.js` file implements an in-memory session ID store, keyed by channel and thread. The Claude Agent SDK manages conversation history server-side via sessions, so only session IDs need to be tracked locally for resuming conversations. The store has TTL-based cleanup (24 hours) and a max entry limit (1000).
+[`thread-context/store.js`](thread-context/store.js) keeps a per-thread **harness runtime session id** (and replaces invalid legacy values). The harness continues conversations when the same session id is reused and the session is still active on AWS. The store uses TTL-based cleanup (24 hours) and a max entry limit (1000).
 
 ## Troubleshooting
 

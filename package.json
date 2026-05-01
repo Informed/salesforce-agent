@@ -11,10 +11,10 @@
     "test": "node --test"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-agentcore": "^3.1041.0",
     "@slack/bolt": "^4.7.0",
     "axios": "^1.9.0",
     "dotenv": "~17.4.2",
-    "eventsource-parser": "^3.0.1",
     "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {

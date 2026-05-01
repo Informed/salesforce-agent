@@ -1,9 +1,10 @@
-import { createAgent, createFollowUpRun, streamRunResponse } from './cursor-client.js';
+import { HarnessConversationRole } from '@aws-sdk/client-bedrock-agentcore';
 
-const CURSOR_API_KEY = process.env.CURSOR_API_KEY;
-const CURSOR_REPO_URL = process.env.CURSOR_REPO_URL;
-const CURSOR_REPO_BRANCH = process.env.CURSOR_REPO_BRANCH || 'main';
-const CURSOR_MODEL = process.env.CURSOR_MODEL || 'composer-2';
+import { invokeHarnessCollectText } from './harness-client.js';
+import { deriveRuntimeSessionId, isValidRuntimeSessionId } from './runtime-session-id.js';
+import { HARNESS_SALESFORCE_RULES } from './system-instructions.js';
+
+const HARNESS_ARN = process.env.HARNESS_ARN;
 
 /**
  * @typedef {Object} AgentDeps
@@ -34,88 +35,66 @@ async function addReaction(deps) {
   }
 }
 
+const SLACK_DIRECTIVE = [
+  'You are responding DIRECTLY to a Slack user. Your response text will be posted',
+  'as a Slack message automatically — do NOT wrap it in a draft, do NOT say',
+  '"here\'s a Slack-ready reply", do NOT address yourself in third person.',
+  'Just respond naturally and concisely as if you are chatting with the user.',
+  '',
+  HARNESS_SALESFORCE_RULES,
+].join('\n');
+
 /**
- * Build the prompt sent to the Cursor Cloud Agent, including context
- * about the Slack user and conversation.
- * @param {string} text - The user's message.
- * @param {string} userId
+ * Resolve harness runtime session id (Slack thread continuity).
+ * @param {string | undefined} storedSessionId
+ * @param {AgentDeps | undefined} deps
  * @returns {string}
  */
-function buildPrompt(text, userId) {
-  return [
-    'You are responding DIRECTLY to a Slack user. Your response text will be posted',
-    'as a Slack message automatically — do NOT wrap it in a draft, do NOT say',
-    '"here\'s a Slack-ready reply", do NOT address yourself in third person.',
-    'Just respond naturally and concisely as if you are chatting with the user.',
-    '',
-    'Follow the instructions in .cursor/rules/salesforce-agent.md.',
-    'If the user asks about Salesforce data,',
-    'run `node scripts/sf-query.js "<SOQL>"` to fetch live data and summarize it.',
-    '',
-    `User <@${userId}> says: ${text}`,
-  ].join('\n');
+function resolveRuntimeSessionId(storedSessionId, deps) {
+  if (storedSessionId && isValidRuntimeSessionId(storedSessionId)) {
+    return storedSessionId;
+  }
+  if (deps?.channelId && deps?.threadTs) {
+    return deriveRuntimeSessionId(deps.channelId, deps.threadTs);
+  }
+  throw new Error('Harness session requires channelId and threadTs in deps, or a valid stored runtime session id');
 }
 
 /**
- * Run the agent with the given text and optional agent ID for follow-up.
+ * Run the agent with the given text and optional stored runtime session id for follow-up.
  * @param {string} text - The user's message text.
- * @param {string} [agentId] - An existing agent ID to send a follow-up run.
+ * @param {string} [storedSessionId] - Previously stored harness runtime session id (must satisfy harness id pattern).
  * @param {AgentDeps} [deps] - Dependencies for Slack API access.
  * @returns {Promise<{responseText: string, agentId: string | null}>}
  */
-export async function runAgent(text, agentId = undefined, deps = undefined) {
-  if (!CURSOR_API_KEY) {
-    throw new Error('CURSOR_API_KEY is not set. Get one from cursor.com/dashboard/integrations');
-  }
-  if (!CURSOR_REPO_URL) {
-    throw new Error('CURSOR_REPO_URL is not set. Set it to your GitHub repo URL.');
+export async function runAgent(text, storedSessionId = undefined, deps = undefined) {
+  if (!HARNESS_ARN) {
+    throw new Error('HARNESS_ARN is not set. Deploy a harness and set its ARN.');
   }
 
   if (deps) {
     addReaction(deps);
   }
 
-  let newAgentId;
-  let runId;
+  const runtimeSessionId = resolveRuntimeSessionId(storedSessionId, deps);
 
-  if (agentId) {
-    try {
-      const result = await createFollowUpRun({
-        apiKey: CURSOR_API_KEY,
-        agentId,
-        prompt: buildPrompt(text, deps?.userId || 'unknown'),
-      });
-      newAgentId = agentId;
-      runId = result.runId;
-    } catch {
-      // Agent may have expired or be busy — fall back to creating a new one
-      const result = await createAgent({
-        apiKey: CURSOR_API_KEY,
-        prompt: buildPrompt(text, deps?.userId || 'unknown'),
-        repoUrl: CURSOR_REPO_URL,
-        branch: CURSOR_REPO_BRANCH,
-        model: CURSOR_MODEL,
-      });
-      newAgentId = result.agentId;
-      runId = result.runId;
-    }
-  } else {
-    const result = await createAgent({
-      apiKey: CURSOR_API_KEY,
-      prompt: buildPrompt(text, deps?.userId || 'unknown'),
-      repoUrl: CURSOR_REPO_URL,
-      branch: CURSOR_REPO_BRANCH,
-      model: CURSOR_MODEL,
-    });
-    newAgentId = result.agentId;
-    runId = result.runId;
-  }
+  const systemPrompt = [{ text: SLACK_DIRECTIVE }];
+  const messages = [
+    {
+      role: HarnessConversationRole.USER,
+      content: [{ text: `User <@${deps?.userId || 'unknown'}> says: ${text}` }],
+    },
+  ];
 
-  const responseText = await streamRunResponse({
-    apiKey: CURSOR_API_KEY,
-    agentId: newAgentId,
-    runId,
+  const responseText = await invokeHarnessCollectText({
+    harnessArn: HARNESS_ARN,
+    runtimeSessionId,
+    messages,
+    systemPrompt,
   });
 
-  return { responseText: responseText || '_The agent completed but produced no text output._', agentId: newAgentId };
+  return {
+    responseText: responseText || '_The agent completed but produced no text output._',
+    agentId: runtimeSessionId,
+  };
 }

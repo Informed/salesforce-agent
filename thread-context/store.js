@@ -1,11 +1,11 @@
 /**
  * @typedef {Object} StoreEntry
- * @property {string} sessionId
+ * @property {string} sessionId - Harness runtime session id (or legacy value replaced on next message).
  * @property {number} timestamp
  */
 
 /**
- * In-memory session ID store with TTL-based cleanup.
+ * In-memory store for per-thread harness runtime session ids, with TTL-based cleanup.
  */
 export class SessionStore {
   /**

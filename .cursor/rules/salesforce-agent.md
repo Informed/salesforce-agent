@@ -74,7 +74,7 @@ SELECT Name, Amount, StageName, CloseDate FROM Opportunity WHERE Owner.Name LIKE
 
 - You cannot create or update Salesforce records (read-only access)
 - You cannot access objects beyond what the connected user has permissions for
-- If credentials are missing, tell the user to check the Cursor Secrets configuration
+- If credentials are missing, tell the user to check AgentCore harness secrets / SF_* environment variables
 
 ## Non-Salesforce Questions
 

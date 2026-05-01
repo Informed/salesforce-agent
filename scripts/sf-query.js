@@ -7,12 +7,12 @@
  * Usage:
  *   node scripts/sf-query.js "SELECT Id, Name, Amount FROM Opportunity LIMIT 10"
  *
- * Environment variables (set via Cursor Secrets or .env):
+ * Environment variables (set on the AgentCore harness / .env for local runs):
  *   SF_LOGIN_URL, SF_CLIENT_ID, SF_USERNAME, SF_PRIVATE_KEY
  */
 
-import jwt from 'jsonwebtoken';
 import axios from 'axios';
+import jwt from 'jsonwebtoken';
 
 const SF_LOGIN_URL = process.env.SF_LOGIN_URL || 'https://login.salesforce.com';
 const SF_CLIENT_ID = process.env.SF_CLIENT_ID;
@@ -38,9 +38,11 @@ const SF_PRIVATE_KEY = (() => {
 })();
 
 if (!SF_CLIENT_ID || !SF_USERNAME || !SF_PRIVATE_KEY) {
-  console.error(JSON.stringify({
-    error: 'Missing Salesforce credentials. Set SF_CLIENT_ID, SF_USERNAME, and SF_PRIVATE_KEY.',
-  }));
+  console.error(
+    JSON.stringify({
+      error: 'Missing Salesforce credentials. Set SF_CLIENT_ID, SF_USERNAME, and SF_PRIVATE_KEY.',
+    }),
+  );
   process.exit(1);
 }
 
@@ -99,14 +101,20 @@ async function main() {
     const { accessToken, instanceUrl } = await authenticate();
     const result = await runQuery(soql, accessToken, instanceUrl);
 
-    console.log(JSON.stringify({
-      totalSize: result.totalSize,
-      done: result.done,
-      records: result.records.map((r) => {
-        const { attributes, ...fields } = r;
-        return fields;
-      }),
-    }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          totalSize: result.totalSize,
+          done: result.done,
+          records: result.records.map((r) => {
+            const { attributes, ...fields } = r;
+            return fields;
+          }),
+        },
+        null,
+        2,
+      ),
+    );
   } catch (err) {
     const message = err.response?.data?.error_description || err.response?.data || err.message;
     console.error(JSON.stringify({ error: `Salesforce query failed: ${message}` }));

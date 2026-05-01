@@ -42,7 +42,7 @@ export async function handleMessage({ client, context, event, logger, say, saySt
     const threadTs = event.thread_ts || event.ts;
     const userId = /** @type {string} */ (context.userId);
 
-    // Get session ID for conversation context
+    // Harness runtime session id (per thread); invalid legacy ids are replaced after invoke
     const existingSessionId = sessionStore.getSession(channelId, threadTs);
 
     // Set assistant thread status with loading messages
@@ -67,7 +67,6 @@ export async function handleMessage({ client, context, event, logger, say, saySt
     const feedbackBlocks = buildFeedbackBlocks();
     await streamer.stop({ blocks: feedbackBlocks });
 
-    // Store agent ID for conversation continuity
     if (newAgentId) {
       sessionStore.setSession(channelId, threadTs, newAgentId);
     }
