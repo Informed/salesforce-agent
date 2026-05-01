@@ -31,6 +31,23 @@ const SF_PRIVATE_KEY = (() => {
   return key.trim();
 })();
 
+// Diagnostic: show key format (first/last 20 chars only, not the actual key)
+if (SF_PRIVATE_KEY) {
+  const raw = process.env.SF_PRIVATE_KEY || '';
+  console.error(JSON.stringify({
+    debug_key_info: {
+      raw_length: raw.length,
+      raw_starts_with: raw.slice(0, 30),
+      raw_has_backslash_n: raw.includes('\\n'),
+      raw_has_real_newline: raw.includes('\n'),
+      parsed_length: SF_PRIVATE_KEY.length,
+      parsed_starts_with: SF_PRIVATE_KEY.slice(0, 30),
+      parsed_has_newlines: SF_PRIVATE_KEY.includes('\n'),
+      parsed_newline_count: (SF_PRIVATE_KEY.match(/\n/g) || []).length,
+    },
+  }));
+}
+
 if (!SF_CLIENT_ID || !SF_USERNAME || !SF_PRIVATE_KEY) {
   console.error(JSON.stringify({
     error: 'Missing Salesforce credentials. Set SF_CLIENT_ID, SF_USERNAME, and SF_PRIVATE_KEY.',
