@@ -17,7 +17,19 @@ import axios from 'axios';
 const SF_LOGIN_URL = process.env.SF_LOGIN_URL || 'https://login.salesforce.com';
 const SF_CLIENT_ID = process.env.SF_CLIENT_ID;
 const SF_USERNAME = process.env.SF_USERNAME;
-const SF_PRIVATE_KEY = process.env.SF_PRIVATE_KEY?.replace(/\\n/g, '\n');
+const SF_PRIVATE_KEY = (() => {
+  let key = process.env.SF_PRIVATE_KEY;
+  if (!key) return undefined;
+  key = key.replace(/^["']+|["']+$/g, '');
+  key = key.replace(/\\n/g, '\n');
+  if (!key.includes('\n') && key.includes('-----')) {
+    key = key
+      .replace(/-----BEGIN ([\w ]+)-----/, '-----BEGIN $1-----\n')
+      .replace(/-----END ([\w ]+)-----/, '\n-----END $1-----')
+      .replace(/(.{64})(?!-)/g, '$1\n');
+  }
+  return key.trim();
+})();
 
 if (!SF_CLIENT_ID || !SF_USERNAME || !SF_PRIVATE_KEY) {
   console.error(JSON.stringify({
