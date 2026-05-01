@@ -18,16 +18,15 @@ const SF_LOGIN_URL = process.env.SF_LOGIN_URL || 'https://login.salesforce.com';
 const SF_CLIENT_ID = process.env.SF_CLIENT_ID;
 const SF_USERNAME = process.env.SF_USERNAME;
 const SF_PRIVATE_KEY = (() => {
+  const body = process.env.SF_PRIVATE_KEY_BODY;
+  if (body) {
+    const cleaned = body.replace(/\s/g, '');
+    const lines = cleaned.match(/.{1,64}/g) || [];
+    return `-----BEGIN PRIVATE KEY-----\n${lines.join('\n')}\n-----END PRIVATE KEY-----`;
+  }
   let key = process.env.SF_PRIVATE_KEY;
   if (!key) return undefined;
   key = key.replace(/^["']+|["']+$/g, '').trim();
-  if (!key.includes('-----')) {
-    try {
-      key = Buffer.from(key, 'base64').toString('utf-8');
-    } catch {
-      // not base64, use as-is
-    }
-  }
   key = key.replace(/\\n/g, '\n');
   if (!key.includes('\n') && key.includes('-----')) {
     key = key
