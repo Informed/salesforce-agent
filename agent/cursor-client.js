@@ -32,7 +32,6 @@ export async function createAgent({ apiKey, prompt, repoUrl, branch = 'main', mo
       model: { id: model },
       repos: [{ url: repoUrl, startingRef: branch }],
       autoCreatePR: false,
-      autoGenerateBranch: false,
     }),
   });
 
@@ -42,7 +41,12 @@ export async function createAgent({ apiKey, prompt, repoUrl, branch = 'main', mo
   }
 
   const data = await res.json();
-  return { agentId: data.agent.id, runId: data.run.id };
+  const agentId = data.agent?.id;
+  const runId = data.run?.id || data.agent?.latestRunId;
+  if (!agentId || !runId) {
+    throw new Error(`Unexpected create agent response: ${JSON.stringify(data).slice(0, 200)}`);
+  }
+  return { agentId, runId };
 }
 
 /**
@@ -71,7 +75,11 @@ export async function createFollowUpRun({ apiKey, agentId, prompt }) {
   }
 
   const data = await res.json();
-  return { runId: data.id };
+  const runId = data.run?.id || data.id;
+  if (!runId?.startsWith('run-')) {
+    throw new Error(`Unexpected follow-up run response: ${JSON.stringify(data).slice(0, 200)}`);
+  }
+  return { runId };
 }
 
 /**
