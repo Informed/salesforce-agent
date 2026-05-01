@@ -1,8 +1,8 @@
 const SUGGESTED_PROMPTS = [
-  { title: 'Open Pipeline', message: 'What does our open pipeline look like right now?' },
-  { title: 'Closing This Month', message: 'Which opportunities are closing this month?' },
-  { title: 'Account Count', message: 'How many accounts do we have in Salesforce?' },
-  { title: 'Top Deals', message: 'Show me the top 10 open opportunities by amount' },
+  { title: 'Top Opportunities by ARR', message: 'List my top 5 Salesforce opportunities in terms of ARR' },
+  { title: 'Closing This Quarter', message: 'Which opportunities are closing this quarter?' },
+  { title: 'Pipeline Summary', message: 'Give me a summary of our open pipeline by stage' },
+  { title: 'Recently Closed Won', message: 'Show me deals we closed won in the last 30 days' },
 ];
 
 /**
