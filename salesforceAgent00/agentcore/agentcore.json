@@ -1,0 +1,26 @@
+{
+  "$schema": "https://schema.agentcore.aws.dev/v1/agentcore.json",
+  "name": "salesforceAgent00",
+  "version": 1,
+  "managedBy": "CDK",
+  "tags": {
+    "agentcore:created-by": "agentcore-cli",
+    "agentcore:project-name": "salesforceAgent00"
+  },
+  "runtimes": [],
+  "memories": [],
+  "credentials": [],
+  "evaluators": [],
+  "onlineEvalConfigs": [],
+  "agentCoreGateways": [],
+  "policyEngines": [],
+  "harnesses": [
+    {
+      "name": "salesForceAgentHarness00",
+      "path": "app/salesForceAgentHarness00"
+    }
+  ],
+  "configBundles": [],
+  "abTests": [],
+  "httpGateways": []
+}

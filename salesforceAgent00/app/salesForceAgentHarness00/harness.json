@@ -1,0 +1,11 @@
+{
+  "name": "salesForceAgentHarness00",
+  "model": {
+    "provider": "bedrock",
+    "modelId": "global.anthropic.claude-sonnet-4-6"
+  },
+  "tools": [],
+  "skills": [],
+  "dockerfile": "Dockerfile",
+  "networkMode": "PUBLIC"
+}
