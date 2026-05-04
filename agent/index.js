@@ -1,1 +1,1 @@
-export { runAgent } from './agent.js';
+export { runAgent, extractSlackImages } from './agent.js';

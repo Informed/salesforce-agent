@@ -1,4 +1,4 @@
-import { runAgent } from '../../agent/index.js';
+import { runAgent, extractSlackImages } from '../../agent/index.js';
 import { sessionStore } from '../../thread-context/index.js';
 import { buildFeedbackBlocks } from '../views/feedback-builder.js';
 
@@ -57,9 +57,14 @@ export async function handleMessage({ client, context, event, logger, say, saySt
       ],
     });
 
+    // Download any attached images for the agent
+    const images = event.files?.length
+      ? await extractSlackImages(event.files, /** @type {string} */ (context.botToken))
+      : undefined;
+
     // Run the agent with deps for tool access
     const deps = { client, userId, channelId, threadTs, messageTs: event.ts, userToken: context.userToken };
-    const { responseText, agentId: newAgentId } = await runAgent(text, existingSessionId ?? undefined, deps);
+    const { responseText, agentId: newAgentId } = await runAgent(text, existingSessionId ?? undefined, deps, images);
 
     // Stream response in thread with feedback buttons
     const streamer = sayStream();

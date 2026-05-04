@@ -1,4 +1,4 @@
-import { runAgent } from '../../agent/index.js';
+import { runAgent, extractSlackImages } from '../../agent/index.js';
 import { sessionStore } from '../../thread-context/index.js';
 import { buildFeedbackBlocks } from '../views/feedback-builder.js';
 
@@ -17,7 +17,12 @@ export async function handleAppMentioned({ client, context, event, logger, say, 
     // Strip the bot mention from the text
     const cleanedText = text.replace(/<@[A-Z0-9]+>/g, '').trim();
 
-    if (!cleanedText) {
+    // Download any attached images for the agent
+    const images = event.files?.length
+      ? await extractSlackImages(event.files, /** @type {string} */ (context.botToken))
+      : undefined;
+
+    if (!cleanedText && !images?.length) {
       await say({
         text: "Hey there! How can I help you? Ask me anything and I'll do my best.",
         thread_ts: threadTs,
@@ -42,7 +47,7 @@ export async function handleAppMentioned({ client, context, event, logger, say, 
 
     // Run the agent with deps for tool access
     const deps = { client, userId, channelId, threadTs, messageTs: event.ts, userToken: context.userToken };
-    const { responseText, agentId: newAgentId } = await runAgent(cleanedText, existingSessionId ?? undefined, deps);
+    const { responseText, agentId: newAgentId } = await runAgent(cleanedText, existingSessionId ?? undefined, deps, images);
 
     // Stream response in thread with feedback buttons
     const streamer = sayStream();

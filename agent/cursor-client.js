@@ -11,16 +11,29 @@ function basicAuth(apiKey) {
 }
 
 /**
+ * @typedef {Object} PromptImage
+ * @property {string} data - base64-encoded image bytes
+ * @property {{width: number, height: number}} dimension
+ */
+
+/**
  * Create a new Cursor Cloud Agent and start an initial run.
  * @param {Object} opts
  * @param {string} opts.apiKey
  * @param {string} opts.prompt
+ * @param {PromptImage[]} [opts.images]
  * @param {string} opts.repoUrl
  * @param {string} [opts.branch='main']
  * @param {string} [opts.model='composer-2']
  * @returns {Promise<{agentId: string, runId: string}>}
  */
-export async function createAgent({ apiKey, prompt, repoUrl, branch = 'main', model = 'composer-2' }) {
+export async function createAgent({ apiKey, prompt, images, repoUrl, branch = 'main', model = 'composer-2' }) {
+  /** @type {Record<string, any>} */
+  const promptPayload = { text: prompt };
+  if (images?.length) {
+    promptPayload.images = images;
+  }
+
   const res = await fetch(`${CURSOR_API_BASE}/v1/agents`, {
     method: 'POST',
     headers: {
@@ -28,7 +41,7 @@ export async function createAgent({ apiKey, prompt, repoUrl, branch = 'main', mo
       Authorization: basicAuth(apiKey),
     },
     body: JSON.stringify({
-      prompt: { text: prompt },
+      prompt: promptPayload,
       model: { id: model },
       repos: [{ url: repoUrl, startingRef: branch }],
       autoCreatePR: false,
@@ -55,9 +68,16 @@ export async function createAgent({ apiKey, prompt, repoUrl, branch = 'main', mo
  * @param {string} opts.apiKey
  * @param {string} opts.agentId
  * @param {string} opts.prompt
+ * @param {PromptImage[]} [opts.images]
  * @returns {Promise<{runId: string}>}
  */
-export async function createFollowUpRun({ apiKey, agentId, prompt }) {
+export async function createFollowUpRun({ apiKey, agentId, prompt, images }) {
+  /** @type {Record<string, any>} */
+  const promptPayload = { text: prompt };
+  if (images?.length) {
+    promptPayload.images = images;
+  }
+
   const res = await fetch(`${CURSOR_API_BASE}/v1/agents/${agentId}/runs`, {
     method: 'POST',
     headers: {
@@ -65,7 +85,7 @@ export async function createFollowUpRun({ apiKey, agentId, prompt }) {
       Authorization: basicAuth(apiKey),
     },
     body: JSON.stringify({
-      prompt: { text: prompt },
+      prompt: promptPayload,
     }),
   });
 
