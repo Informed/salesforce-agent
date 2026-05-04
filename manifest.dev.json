@@ -1,0 +1,74 @@
+{
+  "display_information": {
+    "name": "salesforce-agent-dev",
+    "description": "[DEV] Query your Salesforce org — parallel bot for testing alongside salesforce-agent.",
+    "long_description": "Hey there \ud83d\udc4b I'm your Salesforce assistant (dev).\n\nI can query your Salesforce org in real time and answer questions about opportunities, accounts, pipeline, and more.\n\nHow to use me:\n\u2022 Send me a direct message to ask a question\n\u2022 Mention me in a channel with @salesforce-agent-dev and your question\n\nThings I can do:\n\u2022 Show open pipeline and opportunity details\n\u2022 Count accounts, opportunities, or other records\n\u2022 Find deals closing this month/quarter\n\u2022 Look up opportunities by owner, stage, or amount\n\u2022 Summarize recently closed-won deals"
+  },
+  "features": {
+    "assistant_view": {
+      "assistant_description": "[DEV] Query your Salesforce org in real time — opportunities, accounts, pipeline, and more.",
+      "suggested_prompts": []
+    },
+    "app_home": {
+      "home_tab_enabled": false,
+      "messages_tab_enabled": true,
+      "messages_tab_read_only_enabled": false
+    },
+    "bot_user": {
+      "display_name": "salesforce-agent-dev",
+      "always_online": false
+    }
+  },
+  "oauth_config": {
+    "redirect_urls": ["https://ngrok-free.app/slack/oauth_redirect"],
+    "scopes": {
+      "user": [
+        "search:read",
+        "channels:history",
+        "channels:read",
+        "groups:history",
+        "groups:read",
+        "im:history",
+        "mpim:history",
+        "users:read",
+        "search:read.public",
+        "search:read.private",
+        "search:read.mpim",
+        "search:read.im",
+        "search:read.files",
+        "search:read.users",
+        "chat:write",
+        "canvases:read",
+        "canvases:write",
+        "users:read.email"
+      ],
+      "bot": [
+        "app_mentions:read",
+        "channels:history",
+        "chat:write",
+        "groups:history",
+        "im:history",
+        "im:read",
+        "im:write",
+        "reactions:write",
+        "reactions:read",
+        "users:read",
+        "assistant:write"
+      ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "https://ngrok-free.app/slack/events",
+      "bot_events": ["app_mention", "assistant_thread_started", "message.channels", "message.groups", "message.im"]
+    },
+    "interactivity": {
+      "is_enabled": true,
+      "request_url": "https://ngrok-free.app/slack/events"
+    },
+    "is_mcp_enabled": true,
+    "org_deploy_enabled": true,
+    "socket_mode_enabled": true,
+    "token_rotation_enabled": false
+  }
+}

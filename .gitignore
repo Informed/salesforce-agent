@@ -4,6 +4,7 @@
 # Environment
 .env*
 !.env.sample
+!.env.dev.sample
 
 # Logs
 logs/

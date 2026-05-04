@@ -6,6 +6,7 @@
   "scripts": {
     "check": "npx tsc --checkJs --noEmit --skipLibCheck --esModuleInterop --target esnext --module nodenext --moduleResolution nodenext app.js",
     "start": "node app.js",
+    "start:dev": "cross-env DOTENV_CONFIG_PATH=.env.dev node app.js",
     "lint": "npx @biomejs/biome check .",
     "lint:fix": "npx @biomejs/biome check --write .",
     "test": "find tests -name '*.test.js' -print0 | xargs -0 node --test",
@@ -21,6 +22,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.12",
     "@slack/cli-hooks": "^1.3.2",
+    "cross-env": "^10.1.0",
     "typescript": "^6.0.2"
   }
 }

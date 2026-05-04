@@ -26,6 +26,10 @@ Official references:
 
 The Slack host only needs credentials to call **AWS** (profile, env keys, or ECS/Lambda task role). Salesforce credentials are **not** read by the Slack process for harness calls; they must be available **inside the harness** (see below).
 
+### Slack: parallel dev bot (Socket Mode)
+
+Slack **Socket Mode** allows **one active WebSocket connection per Slack app**. Running two `npm start` processes with the same `SLACK_APP_TOKEN` / `SLACK_BOT_TOKEN` will disconnect or race. To run this repo alongside a production bot (e.g. from `main`), create a **second Slack app** from [`manifest.dev.json`](../manifest.dev.json), copy [`.env.dev.sample`](../.env.dev.sample) to `.env.dev`, fill in that app’s tokens, and run **`npm run start:dev`**. Keep production on `.env` + **`npm start`**. Set `HARNESS_ARN` in `.env.dev` to the same harness as production or, if you deploy a separate AgentCore stack, to that harness’s ARN (you may use a distinct [`agentcore.json`](../salesforceAgent00/agentcore/agentcore.json) `name` so deploys do not overwrite the other stack).
+
 ## IAM for the Slack app caller
 
 The principal that runs Bolt (human laptop, ECS task role, etc.) must be allowed to invoke the harness. AWS documents that **`InvokeHarness` requires both**:

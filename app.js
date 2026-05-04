@@ -1,8 +1,8 @@
-import 'dotenv/config';
-
 import { App, LogLevel } from '@slack/bolt';
-
+import { config as loadEnv } from 'dotenv';
 import { registerListeners } from './listeners/index.js';
+
+loadEnv({ path: process.env.DOTENV_CONFIG_PATH || '.env' });
 
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,

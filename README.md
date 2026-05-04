@@ -127,6 +127,19 @@ npm start
 
 </details>
 
+### Running a second bot (parallel with production)
+
+Slack **Socket Mode** keeps **one active connection per Slack app**. Two processes using the same `SLACK_APP_TOKEN` and `SLACK_BOT_TOKEN` will interfere with each other, so a git branch alone does not isolate runtime behavior.
+
+To run a **dev** bot while production keeps running:
+
+1. In [Slack API](https://api.slack.com/apps), **Create New App** → **From an app manifest** and paste [`manifest.dev.json`](./manifest.dev.json) (names differ from [`manifest.json`](./manifest.json) so both apps can exist in one workspace).
+2. **Install** the dev app and create an **App-Level Token** (`connections:write`) plus use the **Bot User OAuth Token** from **OAuth & Permissions**.
+3. Copy [`.env.dev.sample`](./.env.dev.sample) to `.env.dev` (gitignored), paste those tokens and your `HARNESS_ARN` / AWS settings.
+4. Run **`npm run start:dev`** (loads `.env.dev` via `DOTENV_CONFIG_PATH`). Keep production on **`.env`** and **`npm start`**.
+
+Never reuse tokens between `.env` and `.env.dev`. Optional: use a separate Salesforce/harness ARN in `.env.dev` if you deploy another AgentCore stack—see [docs/agentcore-harness.md](docs/agentcore-harness.md#slack-parallel-dev-bot-socket-mode).
+
 <details><summary><strong>Using OAuth HTTP Server (with ngrok)</strong></summary>
 
 #### OAuth HTTP Server
