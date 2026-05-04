@@ -42,6 +42,17 @@ export async function handleAppMentioned({ client, context, event, logger, say, 
       ],
     });
 
+    // Post an immediate acknowledgment so the user knows we're working
+    const ack = await say({ text: '_Got your request — working on it…_', thread_ts: threadTs });
+
+    if (images?.length) {
+      await client.chat.update({
+        channel: channelId,
+        ts: /** @type {string} */ (ack.ts),
+        text: `_Got your request — downloaded ${images.length} image(s), sending to agent…_`,
+      });
+    }
+
     // Get session ID for conversation context
     const existingSessionId = sessionStore.getSession(channelId, threadTs);
 
@@ -49,11 +60,14 @@ export async function handleAppMentioned({ client, context, event, logger, say, 
     const deps = { client, userId, channelId, threadTs, messageTs: event.ts, userToken: context.userToken };
     const { responseText, agentId: newAgentId } = await runAgent(cleanedText, existingSessionId ?? undefined, deps, images);
 
-    // Stream response in thread with feedback buttons
-    const streamer = sayStream();
-    await streamer.append({ markdown_text: responseText });
+    // Replace the progress message with the actual response + feedback buttons
     const feedbackBlocks = buildFeedbackBlocks();
-    await streamer.stop({ blocks: feedbackBlocks });
+    await client.chat.update({
+      channel: channelId,
+      ts: /** @type {string} */ (ack.ts),
+      text: responseText,
+      blocks: feedbackBlocks,
+    });
 
     // Store agent ID for conversation continuity
     if (newAgentId) {

@@ -119,6 +119,9 @@ function buildPrompt(text, userId, hasImages = false) {
  * @returns {Promise<{responseText: string, agentId: string | null}>}
  */
 export async function runAgent(text, agentId = undefined, deps = undefined, images = undefined) {
+  const t0 = Date.now();
+  console.log(`[agent] runAgent: start (existingAgent=${!!agentId}, images=${images?.length ?? 0}, model=${CURSOR_MODEL})`);
+
   if (!CURSOR_API_KEY) {
     throw new Error('CURSOR_API_KEY is not set. Get one from cursor.com/dashboard/integrations');
   }
@@ -147,6 +150,7 @@ export async function runAgent(text, agentId = undefined, deps = undefined, imag
       newAgentId = agentId;
       runId = result.runId;
     } catch {
+      console.log(`[agent] runAgent: follow-up failed, creating new agent`);
       const result = await createAgent({
         apiKey: CURSOR_API_KEY,
         prompt,
@@ -171,11 +175,14 @@ export async function runAgent(text, agentId = undefined, deps = undefined, imag
     runId = result.runId;
   }
 
+  console.log(`[agent] runAgent: agent ready at +${Date.now() - t0}ms, streaming response...`);
+
   const responseText = await streamRunResponse({
     apiKey: CURSOR_API_KEY,
     agentId: newAgentId,
     runId,
   });
 
+  console.log(`[agent] runAgent: total time ${Date.now() - t0}ms`);
   return { responseText: responseText || '_The agent completed but produced no text output._', agentId: newAgentId };
 }
