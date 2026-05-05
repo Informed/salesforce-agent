@@ -170,9 +170,29 @@ If a prompt is unclear, prefer **the smallest option** (no extra tools, public n
 
 ## Deploy and update
 
-- **Update harness config / model / tools**: change the AgentCore project files created by the CLI, then `agentcore deploy` again.
-- **Update only the Slack app**: deploy your Node process as usual (new container image, PM2 restart, etc.); code changes to `agent/*.js` do not require harness redeploy unless you change contract (e.g. payload shape).
-- **Secrets**: prefer AWS Secrets Manager or SSM Parameter Store, referenced from harness environment or execution role; avoid committing secrets.
+### In-repo AgentCore project (`salesforceAgent00/`)
+
+This repository may include [`salesforceAgent00/`](../salesforceAgent00/) (an AgentCore project with `agentcore/agentcore.json` and CDK). To build and deploy that harness from a clean clone:
+
+1. From the **salesforce-agent** repo root:  
+   `./scripts/sync-harness-build-to-agentcore.sh ./salesforceAgent00`  
+   (copies [`agentcore-harness/`](../agentcore-harness/) artifacts into `harnesses[0].path` — see script and [`agentcore-harness/README.md`](../agentcore-harness/README.md).)
+2. `cd salesforceAgent00` → `agentcore validate` (optional) → `agentcore deploy`.
+3. Put the harness **ARN** in the Bolt app’s `.env` as `HARNESS_ARN` and restart **`npm start`** (see [root README](../README.md)).
+
+### What to redeploy when something changes
+
+| Change | Action |
+|--------|--------|
+| Harness **Dockerfile**, `package.json` / lockfile, or `scripts/sf-query.js` under the synced harness path | `npm run sync:agentcore-harness` (updates [`agentcore-harness/`](../agentcore-harness/) from canonical [`scripts/sf-query.js`](../scripts/sf-query.js)), then `./scripts/sync-harness-build-to-agentcore.sh <agentcore-project>`, then **`agentcore deploy`** from that project. |
+| Harness **model / tools / memory** in `harness.json` or `agentcore.json` | Edit those files, **`agentcore deploy`**. |
+| **Bolt** Slack code (`listeners/`, `agent/`, `app.js`) | Restart the Node process; **no** harness deploy unless you changed the harness API contract. |
+| **Slack system prompt** sent to the model (`agent/system-instructions.js`) | Restart Bolt only. |
+| **Secrets** (`SF_*`, API keys) for Salesforce inside the harness | Update AgentCore / AWS env or Secrets Manager on the harness; avoid committing secrets. |
+
+### Bolt app on AWS
+
+This repo does **not** ship IaC for the Bolt process. You run Bolt wherever you host Node (laptop, ECS, EC2, etc.). Only the **harness** is provisioned by AgentCore CDK from the AgentCore project directory.
 
 ## Ongoing operations
 

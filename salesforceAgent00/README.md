@@ -1,6 +1,6 @@
 # AgentCore Project
 
-This project was created with the [AgentCore CLI](https://github.com/aws/agentcore-cli).
+This project was created with the [AgentCore CLI](https://github.com/aws/agentcore-cli). It lives inside the **[salesforce-agent](../README.md)** repository: the **Slack Bolt app** runs from the repo root (`npm start`), while **harness** infrastructure is deployed from **this directory** (`agentcore deploy`). Before each image deploy that uses the synced harness folder, from the **parent** repo root run `./scripts/sync-harness-build-to-agentcore.sh ./salesforceAgent00` (see [agentcore-harness/README.md](../agentcore-harness/README.md) and [docs/agentcore-harness.md](../docs/agentcore-harness.md)).
 
 ## Project Structure
 

@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-See the root `../.claude/CLAUDE.md` for monorepo-wide architecture, commands, and a comparison of all implementations.
+**Human-facing setup, updates, and runbooks:** [README.md](../README.md) and [docs/agentcore-harness.md](../docs/agentcore-harness.md).
 
 ## AgentCore Harness
 

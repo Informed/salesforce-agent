@@ -2,6 +2,8 @@
 
 This folder is a **standalone Docker build context** for the AgentCore harness (Node + `sf-query.js` + minimal npm deps).
 
+**End-to-end setup (Slack app + first deploy):** see the repository [README.md](../README.md). **Harness-only details, IAM, and troubleshooting:** [docs/agentcore-harness.md](../docs/agentcore-harness.md).
+
 ## Why `agentcore deploy` failed with “package-lock.json / scripts/sf-query.js not found”
 
 CodeBuild runs something equivalent to:
