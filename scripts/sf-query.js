@@ -108,7 +108,8 @@ async function main() {
       }),
     }, null, 2));
   } catch (err) {
-    const message = err.response?.data?.error_description || err.response?.data || err.message;
+    const data = err.response?.data;
+    const message = typeof data === 'string' ? data : data?.error_description || (data ? JSON.stringify(data) : err.message);
     console.error(JSON.stringify({ error: `Salesforce query failed: ${message}` }));
     process.exit(1);
   }
