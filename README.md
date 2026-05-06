@@ -85,7 +85,7 @@ If this clone includes [`salesforceAgent00/`](./salesforceAgent00/) with `agentc
 
 # Merge SF_* from .env.harness into app/.../harness.json (Bolt .env is not sent to AWS)
 cp .env.harness.sample .env.harness   # once; edit — see sample for PEM options (avoid unquoted multiline keys)
-npm run merge-harness-env             # errors if SF_PRIVATE_KEY is truncated
+npm run merge-harness-env             # writes harness.json + `.harness-salesforce-env.json` (baked into image for sf-query)
 
 cd salesforceAgent00
 agentcore validate   # optional

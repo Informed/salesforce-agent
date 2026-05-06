@@ -56,6 +56,6 @@ docker build -f Dockerfile -t salesforce-harness:local .
 
 Use `--platform linux/arm64` locally only if your machine defaults to a different architecture and you want to match AgentCore.
 
-Configure `SF_*` via **`harness.json` → `environmentVariables`**: [`.env.harness.sample`](../.env.harness.sample) → `.env.harness`, **`npm run merge-harness-env`**, **`agentcore deploy`**, then **`npm run push-harness-env`** (Bolt’s `.env` is not passed on invoke; **`push-harness-env`** calls AWS **UpdateHarness** so the VM actually gets `SF_*`). See [README](../README.md) and [docs/agentcore-harness.md](../docs/agentcore-harness.md).
+Configure `SF_*` via **`harness.json` → `environmentVariables`** and the baked **`.harness-salesforce-env.json`** next to it (same merge step — `sf-query` loads this file in the image because AgentCore often does not inject harness env into tool shells): [`.env.harness.sample`](../.env.harness.sample) → `.env.harness`, **`npm run merge-harness-env`**, **`agentcore deploy`**, then **`npm run push-harness-env`**. See [README](../README.md) and [docs/agentcore-harness.md](../docs/agentcore-harness.md).
 
 **Docker Hub rate limits:** the Dockerfile uses `public.ecr.aws/docker/library/node` so CodeBuild is not subject to anonymous [Docker Hub pull limits](https://www.docker.com/increase-rate-limit). If you switch back to `docker.io/library/node`, expect occasional `429` failures on shared CI IPs.

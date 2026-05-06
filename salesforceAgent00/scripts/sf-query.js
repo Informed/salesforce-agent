@@ -14,10 +14,56 @@
  *   SF_QUERY_DEBUG=1  →  [sf-query] JSON lines: env lengths, stages, HTTP status on failure (no secrets).
  *   Harness: add SF_QUERY_DEBUG=1 to .env.harness, npm run merge-harness-env, push-harness-env, redeploy if needed.
  *   Local parity: npm run debug-sf-query
+ *
+ * Image fallback: `/app/.harness-salesforce-env.json` (and `../.harness-salesforce-env.json` next to this script)
+ * is populated by `npm run merge-harness-env` and COPY’d in the harness Dockerfile. AgentCore often does not
+ * inject harness `environmentVariables` into tool/shell subprocesses; loading this file fixes remote `sf-query`.
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import axios from 'axios';
 import jwt from 'jsonwebtoken';
+
+const __dirname_sf = path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * @returns {{ loaded: boolean; path?: string }}
+ */
+function applyHarnessSalesforceEnvFile() {
+  const candidates = [
+    '/app/.harness-salesforce-env.json',
+    path.join(__dirname_sf, '..', '.harness-salesforce-env.json'),
+  ];
+  for (const p of candidates) {
+    if (!fs.existsSync(p)) continue;
+    try {
+      const raw = fs.readFileSync(p, 'utf8').trim();
+      if (!raw || raw === '{}') continue;
+      const o = JSON.parse(raw);
+      if (!o || typeof o !== 'object') continue;
+      const keys = [
+        'SF_LOGIN_URL',
+        'SF_CLIENT_ID',
+        'SF_USERNAME',
+        'SF_PRIVATE_KEY',
+        'SF_PRIVATE_KEY_BODY',
+        'SF_QUERY_DEBUG',
+      ];
+      for (const k of keys) {
+        const v = o[k];
+        if (typeof v === 'string' && v.length > 0) process.env[k] = v;
+      }
+      return { loaded: true, path: p };
+    } catch {
+      /* try next path */
+    }
+  }
+  return { loaded: false };
+}
+
+const harnessSalesforceEnvFile = applyHarnessSalesforceEnvFile();
 
 /**
  * @param {string} stage
@@ -61,6 +107,7 @@ const SF_PRIVATE_KEY = (() => {
 })();
 
 sfQueryDebug('after_key_resolve', {
+  harnessSalesforceEnvFile: harnessSalesforceEnvFile.loaded ? harnessSalesforceEnvFile.path : '(not used or empty {})',
   hasClientId: Boolean(String(SF_CLIENT_ID || '').trim()),
   hasUsername: Boolean(String(SF_USERNAME || '').trim()),
   clientIdLen: String(SF_CLIENT_ID || '').length,

@@ -51,6 +51,10 @@ More context: [agentcore-harness/README.md](../agentcore-harness/README.md) and 
 
 2. **Inside the deployed harness** — add **`SF_QUERY_DEBUG=1`** to **`.env.harness`**, run **`npm run merge-harness-env`**, **`npm run push-harness-env`**, and redeploy the image if `sf-query.js` changed. Tool stderr is **not** shown in the Bolt terminal; open **CloudWatch** (or your AgentCore / runtime log sink) for the harness **session / tool execution** logs and filter for **`[sf-query]`**.
 
+### JWT in the container (`sf-query` remote failures)
+
+AgentCore may **not** inject harness **`environmentVariables`** into **tool / shell** subprocesses, so `node scripts/sf-query.js` can see empty `SF_*` even when **`GetHarness`** shows them. This repo **bakes** **`app/sfHarness00/.harness-salesforce-env.json`** into the image (written by **`npm run merge-harness-env`**, committed stub **`{}`**) and **`sf-query.js` loads it** before reading `process.env`. After changing Salesforce secrets: **`merge-harness-env`** → **`./scripts/sync-harness-build-to-agentcore.sh ./salesforceAgent00`** (if you use sync) → **`agentcore deploy`** (new image). **`push-harness-env`** remains useful for control-plane parity; the file fixes the tool shell gap.
+
 ### Slack: parallel dev bot (Socket Mode)
 
 Slack **Socket Mode** allows **one active WebSocket connection per Slack app**. Running two `npm start` processes with the same `SLACK_APP_TOKEN` / `SLACK_BOT_TOKEN` will disconnect or race. To run this repo alongside a production bot (e.g. from `main`), create a **second Slack app** from [`manifest.dev.json`](../manifest.dev.json), copy [`.env.dev.sample`](../.env.dev.sample) to `.env.dev`, fill in that app’s tokens, and run **`npm run start:dev`**. Keep production on `.env` + **`npm start`**. Set `HARNESS_ARN` in `.env.dev` to the same harness as production or, if you deploy a separate AgentCore stack, to that harness’s ARN (you may use a distinct [`agentcore.json`](../salesforceAgent00/agentcore/agentcore.json) `name` so deploys do not overwrite the other stack).

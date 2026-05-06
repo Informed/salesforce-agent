@@ -16,6 +16,8 @@ COPY package.json package-lock.json ./
 # Prefer install over ci: CodeBuild’s Node/npm version can disagree with the lockfile from your laptop.
 RUN npm install --omit=dev --no-audit --no-fund
 
+# JWT for sf-query — `npm run merge-harness-env` overwrites this in app/sfHarness00 before deploy; stub `{}` in git.
+COPY .harness-salesforce-env.json /app/.harness-salesforce-env.json
 COPY scripts/sf-query.js ./scripts/
 
 # Harness manages the main process; keep a harmless default for local `docker run`.

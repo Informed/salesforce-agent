@@ -23,7 +23,7 @@ console.log(h.path);
 }
 TARGET="${DEST}/${REL}"
 mkdir -p "${TARGET}/scripts"
-for f in Dockerfile package.json package-lock.json; do
+for f in Dockerfile package.json package-lock.json .harness-salesforce-env.json; do
   cp "${ROOT}/agentcore-harness/${f}" "${TARGET}/"
 done
 cp "${ROOT}/agentcore-harness/scripts/sf-query.js" "${TARGET}/scripts/"
