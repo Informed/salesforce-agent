@@ -2,7 +2,7 @@
 
 This folder is a **standalone Docker build context** for the AgentCore harness (Node + `sf-query.js` + minimal npm deps).
 
-**End-to-end setup (Slack app + first deploy):** see the repository [README.md](../README.md). **Harness-only details, IAM, and troubleshooting:** [docs/agentcore-harness.md](../docs/agentcore-harness.md).
+**End-to-end setup (Slack app + first deploy):** [README.md](../README.md) (includes **[Slack tokens and HARNESS_ARN](../README.md#slack-tokens-and-harness-arn)** for `.env`, and **Path A** for sync + **`merge-harness-env`** + deploy). **Harness-only details, IAM, and troubleshooting:** [docs/agentcore-harness.md](../docs/agentcore-harness.md) (see **[Salesforce credentials for the harness](../docs/agentcore-harness.md#salesforce-credentials-for-the-harness)**).
 
 ## Why `agentcore deploy` failed with “package-lock.json / scripts/sf-query.js not found”
 
@@ -56,6 +56,6 @@ docker build -f Dockerfile -t salesforce-harness:local .
 
 Use `--platform linux/arm64` locally only if your machine defaults to a different architecture and you want to match AgentCore.
 
-Configure `SF_*` on the harness at runtime, not in the image.
+Configure `SF_*` via **`harness.json` → `environmentVariables`**: [`.env.harness.sample`](../.env.harness.sample) → `.env.harness`, **`npm run merge-harness-env`**, **`agentcore deploy`**, then **`npm run push-harness-env`** (Bolt’s `.env` is not passed on invoke; **`push-harness-env`** calls AWS **UpdateHarness** so the VM actually gets `SF_*`). See [README](../README.md) and [docs/agentcore-harness.md](../docs/agentcore-harness.md).
 
 **Docker Hub rate limits:** the Dockerfile uses `public.ecr.aws/docker/library/node` so CodeBuild is not subject to anonymous [Docker Hub pull limits](https://www.docker.com/increase-rate-limit). If you switch back to `docker.io/library/node`, expect occasional `429` failures on shared CI IPs.

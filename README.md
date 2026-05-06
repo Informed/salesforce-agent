@@ -11,7 +11,7 @@ A Slack app built with [Bolt for JavaScript](https://docs.slack.dev/tools/bolt-j
 | **Bolt app** (`app.js`) | Your machine, VM, or any Node host (Socket Mode by default) | `npm start` after configuring `.env` |
 | **AgentCore harness** | AWS (managed harness + container build) | `agentcore deploy` from your AgentCore project directory; see harness doc |
 
-The Bolt process only needs **`HARNESS_ARN`** and AWS credentials that can call `InvokeHarness`. Salesforce **`SF_*`** variables are **not** read by Bolt for harness calls; set them on the **harness** so `scripts/sf-query.js` works inside AWS.
+The Bolt process only needs **`HARNESS_ARN`** and AWS credentials that can call `InvokeHarness`. Salesforce **`SF_*`** variables are **not** read by Bolt for harness calls; inject them into the harness with **`.env.harness`** + **`npm run merge-harness-env`** before **`agentcore deploy`** (see [Slack tokens and HARNESS_ARN](#slack-tokens-and-harness-arn) and [docs/agentcore-harness.md](docs/agentcore-harness.md#salesforce-credentials-for-the-harness)).
 
 ## Prerequisites
 
@@ -42,9 +42,17 @@ Do **not** use the old Slack sample flow (`slack create … bolt-js-starter-agen
 
 Current manifest uses **Socket Mode** (`socket_mode_enabled: true`). The **Home tab is disabled**; the app uses the **Messages** tab under the app in Slack’s sidebar.
 
-4. Collect tokens for `.env` (next step):
-   - **OAuth & Permissions** → **Bot User OAuth Token** → `SLACK_BOT_TOKEN`
-   - **Basic Information** → **App-Level Tokens** → create a token with scope **`connections:write`** → `SLACK_APP_TOKEN`
+4. Collect tokens for `.env` (next step) — see [Slack tokens and HARNESS_ARN](#slack-tokens-and-harness-arn).
+
+### Slack tokens and HARNESS_ARN
+
+Use **[api.slack.com/apps](https://api.slack.com/apps)** → select **your app** (the one you created from `manifest.json`).
+
+| Variable | Where to get it |
+|----------|------------------|
+| **`SLACK_BOT_TOKEN`** | **OAuth & Permissions** → **Bot User OAuth Token** (starts with `xoxb-`). If you do not see it, use **Install to Workspace** (or **Reinstall**) on the same page so Slack issues the bot token. |
+| **`SLACK_APP_TOKEN`** | **Basic Information** → **App-Level Tokens** → **Generate Token and Scopes** → add scope **`connections:write`** → copy the token (starts with `xapp-`). Socket Mode requires this **app-level** token, not the bot token. |
+| **`HARNESS_ARN`** | After a successful **`agentcore deploy`** from your AgentCore project directory (e.g. [`salesforceAgent00/`](./salesforceAgent00/)): copy the harness **ARN** from the **deploy command output**, or run **`agentcore status`**, or open **[AWS console → Amazon Bedrock](https://console.aws.amazon.com/bedrock/)** → **AgentCore** / harness resources for your account and region. It looks like `arn:aws:bedrock-agentcore:<region>:<12-digit-account>:harness/<harness-id>`. Paste it into **`.env`** as `HARNESS_ARN` (Bolt never receives it from the harness deploy by itself). |
 
 ### 3. Configure `.env`
 
@@ -60,7 +68,7 @@ Edit `.env` and set at least:
 | `SLACK_APP_TOKEN` | Yes | `xapp-…` (Socket Mode) |
 | `HARNESS_ARN` | Yes | After you deploy a harness (step 4), paste the harness ARN here. |
 | `AWS_REGION` | If not inferable | Usually matches the region embedded in `HARNESS_ARN`. |
-| `SF_*` | No for Bolt | Used by **`sf-query.js` on the harness**, not by `InvokeHarness` from Bolt. Configure `SF_*` in AgentCore / AWS for the harness; keep in `.env` only if you run local Salesforce scripts. |
+| `SF_*` | No for Bolt | Used only **`sf-query.js` inside the harness**. They are **not** read from Bolt’s `.env` at invoke time. Put them in **`harness.json` → `environmentVariables`** (see [Bedrock AgentCore harness environment](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/harness-environment.html)), or run **`npm run merge-harness-env`** after copying [`.env.harness.sample`](./.env.harness.sample) to **`.env.harness`**, then **`agentcore deploy`**. Keep `SF_*` in `.env` only for local `node scripts/sf-query.js` runs. |
 
 See [`.env.sample`](.env.sample) for the full list.
 
@@ -75,15 +83,25 @@ If this clone includes [`salesforceAgent00/`](./salesforceAgent00/) with `agentc
 # From repo root: copy Dockerfile, package files, sf-query into the harness bundle path
 ./scripts/sync-harness-build-to-agentcore.sh ./salesforceAgent00
 
+# Merge SF_* from .env.harness into app/.../harness.json (Bolt .env is not sent to AWS)
+cp .env.harness.sample .env.harness   # once; edit — see sample for PEM options (avoid unquoted multiline keys)
+npm run merge-harness-env             # errors if SF_PRIVATE_KEY is truncated
+
 cd salesforceAgent00
 agentcore validate   # optional
 agentcore deploy
+cd ..   # back to repo root
+# Requires HARNESS_ARN in .env (paste from deploy output / agentcore status if this is the first deploy).
+npm run push-harness-env              # apply harness.json → environmentVariables to AWS; prints GetHarness SF_* **lengths** (no secrets)
+npm run merge-harness-env -- --clear   # optional: strip secrets from harness.json before git commit
 ```
 
-After deploy succeeds, copy the **harness ARN** from the CLI output or AWS console into **`HARNESS_ARN`** in `.env`.
+If those lengths look correct but Slack still says missing `SF_*`, the AgentCore **runtime session** for that Slack thread may be stale: set **`HARNESS_RUNTIME_SESSION_SALT`** to a new value in `.env`, restart `npm start`, and retry (or use a new assistant thread). See [docs/agentcore-harness.md](docs/agentcore-harness.md#runtime-session-id-rules).
+
+After deploy succeeds, set **`HARNESS_ARN`** in `.env` using the [table above](#slack-tokens-and-harness-arn), then go to **step 5** (`npm start`).
 
 **Path B — New directory from `agentcore create`**  
-Follow the wizard in [docs/agentcore-harness.md](docs/agentcore-harness.md#one-time-harness-setup-cli): use **Harness**, point the Dockerfile at this repo’s [`agentcore-harness/Dockerfile`](./agentcore-harness/Dockerfile), deploy from **inside** the folder the CLI created, then set `HARNESS_ARN` in `.env`.
+Follow the wizard in [docs/agentcore-harness.md](docs/agentcore-harness.md#one-time-harness-setup-cli): use **Harness**, point the Dockerfile at this repo’s [`agentcore-harness/Dockerfile`](./agentcore-harness/Dockerfile), deploy from **inside** the folder the CLI created. For Salesforce SOQL: **`.env.harness`** + **`npm run merge-harness-env -- /path/to/that-project`**, redeploy, then **`npm run push-harness-env -- /path/to/that-project`**. Set **`HARNESS_ARN`** (and Slack tokens) in `.env` using [Slack tokens and HARNESS_ARN](#slack-tokens-and-harness-arn).
 
 Ensure the IAM principal you use for `npm start` can call **`bedrock-agentcore:InvokeHarness`** and **`bedrock-agentcore:InvokeAgentRuntime`** on that harness (see harness doc).
 
@@ -107,6 +125,8 @@ Use this table to see what to redo:
 | **`.env`** (tokens, `HARNESS_ARN`, AWS) | Edit `.env`, restart **`npm start`**. |
 | **Slack manifest** (scopes, events, Socket Mode) | Update [`manifest.json`](./manifest.json), then in [App settings](https://api.slack.com/apps) use **App Manifest** → paste → save. Slack may require **reinstall** or token refresh depending on the change. |
 | **Harness container** ([`agentcore-harness/`](./agentcore-harness/), [`scripts/sf-query.js`](./scripts/sf-query.js), harness `Dockerfile` under `salesforceAgent00/app/...`) | From repo root: `npm run sync:agentcore-harness`, then `./scripts/sync-harness-build-to-agentcore.sh <path-to-agentcore-project>`, then **`agentcore deploy`** from that project directory. Restart Bolt only if `HARNESS_ARN` changed. |
+| **Salesforce credentials for SOQL (`sf-query`)** | Put them in **`harness.json` → `environmentVariables`**: **`.env.harness`** → **`npm run merge-harness-env`**. After **`agentcore deploy`**, run **`npm run push-harness-env`** from the repo root so AWS **UpdateHarness** receives those variables (CDK/image deploy alone can leave the control-plane harness without `SF_*`, so the container sees empty env). Use **`SF_PRIVATE_KEY_BODY`** / **`SF_PRIVATE_KEY_FILE`** / quoted **`SF_PRIVATE_KEY`**. Optionally **`merge-harness-env -- --clear`** afterward. |
+| **Debug SOQL locally (harness parity)** | **`npm run debug-sf-query`** — runs **`sf-query.js`** with env from merged **`harness.json`** and **`SF_QUERY_DEBUG=1`**; **`[sf-query]`** lines on stderr. See [docs/agentcore-harness.md](docs/agentcore-harness.md#debug-sf-queryjs). |
 | **Harness config only** (model in `harness.json`, memory, tools in AgentCore JSON) | Edit files under the AgentCore project, **`agentcore deploy`**. Usually no Bolt code change. |
 | **System prompt / Salesforce wording for the model** | Edit [`agent/system-instructions.js`](./agent/system-instructions.js) (what Bolt sends to the harness). Keep in sync with [`.cursor/rules/salesforce-agent.md`](./.cursor/rules/salesforce-agent.md). Restart **`npm start`**. |
 

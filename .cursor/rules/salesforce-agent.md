@@ -67,14 +67,14 @@ SELECT Name, Amount, StageName, CloseDate FROM Opportunity WHERE Owner.Name LIKE
 
 - Adjust field names if the org uses custom fields
 - Add LIMIT clauses for broad queries (default to LIMIT 25)
-- If a query fails, check the error message and try adjusting field names or syntax
+- If a query fails: read stderr as JSON when present — `SF_ENV_MISSING` → merge + deploy + **`npm run push-harness-env`**; if already done, suggest a **new Slack thread** (fresh harness session). `SF_JWT_SIGN_ERROR` → bad PEM. `SF_QUERY_ERROR` → Connected App / username / `SF_LOGIN_URL`. Otherwise adjust SOQL field names or syntax
 - Always add `ORDER BY` for readability
 
 ## What You Cannot Do
 
 - You cannot create or update Salesforce records (read-only access)
 - You cannot access objects beyond what the connected user has permissions for
-- If credentials are missing, tell the user to check AgentCore harness secrets / SF_* environment variables
+- If `sf-query` stderr shows missing env, give this checklist: **`.env.harness`** with `SF_CLIENT_ID`, `SF_USERNAME`, and key material (`SF_PRIVATE_KEY` / `SF_PRIVATE_KEY_BODY` / `SF_PRIVATE_KEY_FILE` per **`.env.harness.sample`**) → **`npm run merge-harness-env`** → **`agentcore deploy`** → **`npm run push-harness-env`** (confirm **GetHarness** length lines in that command’s output). If lengths look good but errors persist, **`HARNESS_RUNTIME_SESSION_SALT`** in Bolt `.env` (bump value, restart **`npm start`**) or a new assistant thread. Bolt **`.env`** alone does not inject SF_* into the harness; see **README.md** and **docs/agentcore-harness.md** → *Salesforce credentials for the harness*
 
 ## Non-Salesforce Questions
 
@@ -82,4 +82,4 @@ For general questions unrelated to Salesforce, respond helpfully but briefly. Yo
 
 ## Repository (for maintainers)
 
-Cloning, `.env`, harness deploy, and what to restart after code changes: root **README.md** and **docs/agentcore-harness.md**.
+Cloning, **`.env`** (Slack tokens + `HARNESS_ARN`), **`.env.harness`** + **`merge-harness-env`** + **`push-harness-env`**, harness deploy, and what to restart: root **README.md** (section *Slack tokens and HARNESS_ARN*) and **docs/agentcore-harness.md** (*Salesforce credentials for the harness*).

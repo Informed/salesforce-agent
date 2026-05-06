@@ -27,4 +27,5 @@ for f in Dockerfile package.json package-lock.json; do
   cp "${ROOT}/agentcore-harness/${f}" "${TARGET}/"
 done
 cp "${ROOT}/agentcore-harness/scripts/sf-query.js" "${TARGET}/scripts/"
-echo "Synced harness build files into ${TARGET} (harness path: ${REL}). From ${DEST} run: agentcore deploy"
+echo "Synced harness build files into ${TARGET} (harness path: ${REL})."
+echo "For Salesforce SOQL: copy .env.harness.sample to .env.harness, npm run merge-harness-env [-- ${DEST}], then from ${DEST}: agentcore deploy"

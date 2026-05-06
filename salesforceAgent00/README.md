@@ -39,11 +39,23 @@ agentcore dev
 
 ### Deployment
 
-Deploy to AWS:
+From the **parent** [salesforce-agent](../README.md) repo root, sync the Docker context and (for SOQL) merge Salesforce env into `app/.../harness.json` before deploying:
 
 ```bash
+./scripts/sync-harness-build-to-agentcore.sh ./salesforceAgent00
+# If you use Salesforce JWT in the harness:
+#   cp ../.env.harness.sample ../.env.harness   # once, from repo root
+#   npm run merge-harness-env
+cd salesforceAgent00
+agentcore validate   # optional
 agentcore deploy
+cd ..   # parent salesforce-agent repo
+npm run push-harness-env
 ```
+
+Copy the harness **ARN** into **`.env`** as **`HARNESS_ARN`** (see [README — Slack tokens and HARNESS_ARN](../README.md#slack-tokens-and-harness-arn)), then **`npm start`** from the repo root.
+
+**Salesforce JWT:** after each change to `environmentVariables`, run **`npm run merge-harness-env`** (from repo root) and **`npm run push-harness-env`** so the live harness picks up `SF_*` (image-only redeploy is not enough).
 
 ## Commands
 

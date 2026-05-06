@@ -5,6 +5,7 @@
 .env*
 !.env.sample
 !.env.dev.sample
+!.env.harness.sample
 
 # Logs
 logs/

@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { describe, it } from 'node:test';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import {
   deriveRuntimeSessionId,
@@ -8,6 +8,13 @@ import {
 } from '../../agent/runtime-session-id.js';
 
 describe('runtime-session-id', () => {
+  beforeEach(() => {
+    delete process.env.HARNESS_RUNTIME_SESSION_SALT;
+  });
+  afterEach(() => {
+    delete process.env.HARNESS_RUNTIME_SESSION_SALT;
+  });
+
   it('deriveRuntimeSessionId is stable for the same inputs', () => {
     const a = deriveRuntimeSessionId('C0123', '1234.5678');
     const b = deriveRuntimeSessionId('C0123', '1234.5678');
@@ -20,6 +27,14 @@ describe('runtime-session-id', () => {
     const c = deriveRuntimeSessionId('C0999', '1234.5678');
     assert.notStrictEqual(a, b);
     assert.notStrictEqual(a, c);
+  });
+
+  it('deriveRuntimeSessionId changes when HARNESS_RUNTIME_SESSION_SALT changes', () => {
+    process.env.HARNESS_RUNTIME_SESSION_SALT = 'epoch-a';
+    const a = deriveRuntimeSessionId('C0123', '1234.5678');
+    process.env.HARNESS_RUNTIME_SESSION_SALT = 'epoch-b';
+    const b = deriveRuntimeSessionId('C0123', '1234.5678');
+    assert.notStrictEqual(a, b);
   });
 
   it('deriveRuntimeSessionId satisfies harness length and pattern', () => {

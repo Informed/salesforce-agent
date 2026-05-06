@@ -1,10 +1,9 @@
 import { HarnessConversationRole } from '@aws-sdk/client-bedrock-agentcore';
 
+import { isSalesforceAgentDebug, salesforceAgentDebug, shortHarnessArn } from './debug.js';
 import { invokeHarnessCollectText } from './harness-client.js';
 import { deriveRuntimeSessionId, isValidRuntimeSessionId } from './runtime-session-id.js';
 import { HARNESS_SALESFORCE_RULES } from './system-instructions.js';
-
-const HARNESS_ARN = process.env.HARNESS_ARN;
 
 /**
  * @typedef {Object} AgentDeps
@@ -68,7 +67,8 @@ function resolveRuntimeSessionId(storedSessionId, deps) {
  * @returns {Promise<{responseText: string, agentId: string | null}>}
  */
 export async function runAgent(text, storedSessionId = undefined, deps = undefined) {
-  if (!HARNESS_ARN) {
+  const harnessArn = process.env.HARNESS_ARN;
+  if (!harnessArn) {
     throw new Error('HARNESS_ARN is not set. Deploy a harness and set its ARN.');
   }
 
@@ -77,6 +77,18 @@ export async function runAgent(text, storedSessionId = undefined, deps = undefin
   }
 
   const runtimeSessionId = resolveRuntimeSessionId(storedSessionId, deps);
+
+  if (isSalesforceAgentDebug()) {
+    salesforceAgentDebug('runAgent', {
+      harness: shortHarnessArn(harnessArn),
+      runtimeSessionId,
+      channelId: deps?.channelId,
+      threadTs: deps?.threadTs,
+      userMessageChars: text?.length ?? 0,
+      reusedStoredSession: Boolean(storedSessionId && isValidRuntimeSessionId(storedSessionId)),
+      sessionSalt: process.env.HARNESS_RUNTIME_SESSION_SALT ? '(set)' : '(unset)',
+    });
+  }
 
   const systemPrompt = [{ text: SLACK_DIRECTIVE }];
   const messages = [
@@ -87,11 +99,18 @@ export async function runAgent(text, storedSessionId = undefined, deps = undefin
   ];
 
   const responseText = await invokeHarnessCollectText({
-    harnessArn: HARNESS_ARN,
+    harnessArn,
     runtimeSessionId,
     messages,
     systemPrompt,
   });
+
+  if (isSalesforceAgentDebug()) {
+    salesforceAgentDebug('runAgent done', {
+      responseChars: responseText?.length ?? 0,
+      responseHead: responseText ? `${responseText.slice(0, 120).replace(/\s+/g, ' ')}…` : '(empty)',
+    });
+  }
 
   return {
     responseText: responseText || '_The agent completed but produced no text output._',

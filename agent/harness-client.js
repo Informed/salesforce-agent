@@ -1,5 +1,7 @@
 import { BedrockAgentCoreClient, InvokeHarnessCommand } from '@aws-sdk/client-bedrock-agentcore';
 
+import { isSalesforceAgentDebug, salesforceAgentDebug, shortHarnessArn } from './debug.js';
+
 /**
  * @param {string} harnessArn
  * @returns {string | undefined}
@@ -71,6 +73,16 @@ export async function invokeHarnessCollectText({
     ...(systemPrompt?.length ? { systemPrompt } : {}),
   };
 
+  if (isSalesforceAgentDebug()) {
+    salesforceAgentDebug('InvokeHarness sending', {
+      region,
+      harness: shortHarnessArn(harnessArn),
+      runtimeSessionId,
+      timeoutMs,
+    });
+  }
+
+  const t0 = Date.now();
   const response = await client.send(new InvokeHarnessCommand(input));
   const stream = response.stream;
   if (!stream) {
@@ -80,8 +92,10 @@ export async function invokeHarnessCollectText({
   /** @type {string[]} */
   const parts = [];
   const start = Date.now();
+  let streamEvents = 0;
 
   for await (const event of stream) {
+    streamEvents += 1;
     if (Date.now() - start > timeoutMs) {
       throw new Error('Harness invocation timed out');
     }
@@ -89,5 +103,14 @@ export async function invokeHarnessCollectText({
     appendTextDelta(event, parts);
   }
 
-  return parts.join('');
+  const text = parts.join('');
+  if (isSalesforceAgentDebug()) {
+    salesforceAgentDebug('InvokeHarness stream finished', {
+      ms: Date.now() - t0,
+      streamEvents,
+      collectedChars: text.length,
+    });
+  }
+
+  return text;
 }

@@ -18,12 +18,18 @@ export function isValidRuntimeSessionId(id) {
 /**
  * Stable harness runtime session id for a Slack channel + thread.
  * Uses hex digest so only [0-9a-f] (always valid for the harness pattern).
+ *
+ * Optional `HARNESS_RUNTIME_SESSION_SALT` in Bolt’s `.env` (change after env/credential
+ * updates) forces a new AgentCore session so the worker picks up fresh `environmentVariables`
+ * without abandoning Slack — long-lived assistant threads otherwise reuse one session.
+ *
  * @param {string} channelId
  * @param {string} threadTs
  * @returns {string}
  */
 export function deriveRuntimeSessionId(channelId, threadTs) {
-  const raw = `${channelId}:${threadTs}`;
+  const salt = process.env.HARNESS_RUNTIME_SESSION_SALT?.trim() || '';
+  const raw = salt ? `${salt}:${channelId}:${threadTs}` : `${channelId}:${threadTs}`;
   const hex = createHash('sha256').update(raw, 'utf8').digest('hex');
   return `s${hex}`;
 }
