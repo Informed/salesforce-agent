@@ -9,7 +9,7 @@
             "roleArn": "arn:aws:iam::299589795233:role/salesforceAgent00_sfHarness00",
             "status": "READY",
             "agentRuntimeArn": "arn:aws:bedrock-agentcore:us-west-2:299589795233:runtime/harness_salesforceAgent00_sfHarness00-5G9dpO4iuQ",
-            "configHash": "9b42a5b57db1917f"
+            "configHash": "fa261758a9aae75e"
           }
         },
         "stackName": "AgentCore-salesforceAgent00-default"

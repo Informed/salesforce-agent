@@ -5,6 +5,8 @@
   "type": "module",
   "description": "Minimal deps for scripts/sf-query.js inside the AgentCore harness container. Copied into the AgentCore project root before deploy.",
   "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.1043.0",
+    "@aws-sdk/client-ssm": "^3.1043.0",
     "axios": "^1.9.0",
     "jsonwebtoken": "^9.0.2"
   }

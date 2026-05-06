@@ -34,16 +34,183 @@ The Slack host only needs credentials to call **AWS** (profile, env keys, or ECS
 
 ## Salesforce credentials for the harness
 
-Salesforce **JWT** variables (`SF_CLIENT_ID`, `SF_USERNAME`, `SF_PRIVATE_KEY` or `SF_PRIVATE_KEY_BODY`, optional `SF_LOGIN_URL`) must be present **inside the harness container** so [`scripts/sf-query.js`](../scripts/sf-query.js) can run. Bolt’s **`.env` is never sent to the harness** on invoke.
+Salesforce **JWT** material must reach [`scripts/sf-query.js`](../scripts/sf-query.js) **inside the harness**. Bolt’s **`.env` is never sent** on `InvokeHarness`.
 
-1. Copy [`.env.harness.sample`](../.env.harness.sample) to **`.env.harness`** in the repo root or next to your AgentCore project (`salesforceAgent00/.env.harness` is also read).
-2. Fill the same values you would use for a Connected App JWT integration (consumer key, integration user username, and a private key). **Do not put an unquoted multiline PEM on one line per dotenv rules** — only the first line would be read, `harness.json` would get a truncated key, and Salesforce JWT would fail. Prefer **`SF_PRIVATE_KEY_BODY`** (one line), **`SF_PRIVATE_KEY_FILE`**, or a **double-quoted** multiline `SF_PRIVATE_KEY` (see the sample file).
-3. From the **salesforce-agent** repo root: **`npm run merge-harness-env`** (or **`npm run merge-harness-env -- /path/to/agentcore-project`** if the project is not `./salesforceAgent00`). This writes **`harness.json` → `environmentVariables`** (see [AWS: Environment variables](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/harness-environment.html)).
-4. Run **`agentcore deploy`** from the AgentCore project directory.
-5. From the **repo root** again: **`npm run push-harness-env`** (calls **`bedrock-agentcore-control:UpdateHarness`** with the same `environmentVariables` map). This step is **required** in many setups: infrastructure deploy can update the image/role without applying `harness.json` env to the live harness, so `sf-query` would see empty `SF_*` until you push.
-6. Optionally **`npm run merge-harness-env -- --clear`** to strip secrets from local `harness.json` before `git commit` (re-run steps 3 and 5 when SF secrets change).
+**Start here:** the full, ordered walkthrough is **[Step-by-step: Salesforce JWT for AgentCore (detailed)](#step-by-step-salesforce-jwt-for-agentcore-detailed)** below. The short list is:
+
+1. Copy [`.env.harness.sample`](../.env.harness.sample) to **`.env.harness`** (repo root or `salesforceAgent00/.env.harness`).
+2. Choose **Secrets Manager** (pointers only) or **inline PEM** in `.env.harness` — detailed in that section.
+3. From repo root: **`npm run merge-harness-env`** → sync harness build (Path A) → **`agentcore deploy`** from `salesforceAgent00/` → back to repo root: **`npm run push-harness-env`**.
+4. Optionally **`npm run merge-harness-env -- --clear`** before `git commit`.
 
 More context: [agentcore-harness/README.md](../agentcore-harness/README.md) and the root README [Path A / Path B](../README.md#4-deploy-an-agentcore-harness-and-set-harness_arn).
+
+## Step-by-step: Salesforce JWT for AgentCore (detailed)
+
+This section assumes the **in-repo** AgentCore layout: [`salesforceAgent00/`](../salesforceAgent00/) with harness at [`app/sfHarness00/`](../salesforceAgent00/app/sfHarness00/). If your project path differs, replace `salesforceAgent00` everywhere.
+
+### 0. Terms (so nothing is ambiguous)
+
+| Term | Meaning |
+|------|--------|
+| **Repo root** | The `salesforce-agent` git checkout (where the root `package.json` lives). |
+| **AgentCore project dir** | `salesforceAgent00/` — contains `agentcore/agentcore.json`. You run **`agentcore deploy`** **here**, not at repo root. |
+| **Harness app dir** | `salesforceAgent00/app/sfHarness00/` — contains `harness.json`, `Dockerfile`, `scripts/sf-query.js` after sync. |
+| **Bolt `.env`** | Repo root `.env` — Slack tokens, `HARNESS_ARN`, AWS profile for **your laptop** calling `InvokeHarness`. **No Salesforce PEM here** unless you only run `sf-query` locally. |
+| **`.env.harness`** | Salesforce / AWS pointers for the harness. Read by **`npm run merge-harness-env`**. Can live at **repo root** or **`salesforceAgent00/.env.harness`**. |
+
+### 1. Prerequisites (Salesforce side)
+
+1. In Salesforce, you have a **Connected App** with **OAuth** enabled and a **certificate** (or you use a **JWT** integration with a **server** private key).
+2. You know the **Consumer Key** → this repo calls it **`SF_CLIENT_ID`**.
+3. You know the **integration user’s username** (often an email) → **`SF_USERNAME`**.
+4. You have the **PKCS#8 private key** matching the Connected App (often `-----BEGIN PRIVATE KEY-----` …). For this repo, prefer extracting **`SF_PRIVATE_KEY_BODY`** (base64 between the PEM lines, one long line) — see [`.env.harness.sample`](../.env.harness.sample).
+
+### 2. Choose how JWT material gets into `sf-query`
+
+**Option A — AWS Secrets Manager (recommended in production)**  
+You store **one JSON document** in Secrets Manager. The harness only receives **pointers** (`SF_SECRET_ID`), not the PEM in git. At runtime `sf-query` calls **`GetSecretValue`** using the **harness execution role** and merges the JSON keys into `process.env`.
+
+**Option B — Inline in `.env.harness`**  
+You put `SF_CLIENT_ID`, `SF_USERNAME`, and `SF_PRIVATE_KEY_BODY` (or file path / quoted PEM) directly in `.env.harness`. **`merge-harness-env`** copies them into `harness.json` and into **`.harness-salesforce-env.json`**, which is **baked into the Docker image**. This avoids depending on AgentCore injecting env into tool shells.
+
+You can use **both**: e.g. pointers in `harness.json` for `push-harness-env`, and the baked file for reliability — **`merge-harness-env`** writes both when you use inline fields.
+
+---
+
+### 3A. Option A — Secrets Manager (every click / field)
+
+**Step A1 — Build the JSON (once)**  
+Create a JSON object (minify or pretty-print, both work) with **string** values only. Example shape:
+
+```json
+{
+  "SF_LOGIN_URL": "https://login.salesforce.com",
+  "SF_CLIENT_ID": "YOUR_CONNECTED_APP_CONSUMER_KEY",
+  "SF_USERNAME": "integration.user@yourcompany.com",
+  "SF_PRIVATE_KEY_BODY": "MIIE...paste_the_full_base64_body_one_line..."
+}
+```
+
+- **`SF_PRIVATE_KEY_BODY`**: only the base64 between `BEGIN PRIVATE KEY` and `END PRIVATE KEY`, with **no** PEM headers and **no** line breaks inside the value.
+- Use **`https://test.salesforce.com`** for `SF_LOGIN_URL` if the user lives in a sandbox.
+
+**Step A2 — Create the secret in AWS**
+
+1. Open **AWS Console** → **Secrets Manager** (same **Region** as your harness, e.g. `us-west-2`).
+2. **Store a new secret** → **Other type of secret** → **Plaintext** tab.
+3. Paste the **entire JSON** from Step A1.  
+4. Name the secret (e.g. `salesforce-agent/jwt`) and finish the wizard.  
+5. Copy the secret **ARN** (looks like `arn:aws:secretsmanager:REGION:ACCOUNT:secret:name-6RandomChars`). You will paste this into `.env.harness` as **`SF_SECRET_ID`**.
+
+**Step A3 — IAM on the harness execution role**
+
+The **managed harness** runs `sf-query` with an **IAM execution role** (created by AgentCore / CDK). That role must be allowed to read your secret:
+
+- Attach an inline or managed policy allowing **`secretsmanager:GetSecretValue`** on **that secret’s ARN** (or a narrow `secret` resource pattern).
+
+Example statement (replace ARN):
+
+```json
+{
+  "Effect": "Allow",
+  "Action": "secretsmanager:GetSecretValue",
+  "Resource": "arn:aws:secretsmanager:us-west-2:123456789012:secret:salesforce-agent/jwt-AbCdEf"
+}
+```
+
+**Step A4 — `.env.harness` (repo root or `salesforceAgent00/`)**
+
+Minimal AWS-only example:
+
+```dotenv
+SF_SECRET_ID=arn:aws:secretsmanager:us-west-2:123456789012:secret:salesforce-agent/jwt-AbCdEf
+# Optional if AgentCore does not set region on the runtime:
+# SF_AWS_REGION=us-west-2
+# SF_QUERY_DEBUG=1
+```
+
+Do **not** put `SF_CLIENT_ID` / PEM in this file if you want secrets **only** in Secrets Manager.
+
+**Optional — SSM Parameter Store instead of or in addition to Secrets Manager**  
+Store the **same JSON** as a **SecureString** parameter. Set **`SF_SSM_PARAMETER_NAME=/your/param/name`**. The execution role needs **`ssm:GetParameter`** on that parameter and **`kms:Decrypt`** on the parameter’s KMS key. If both **`SF_SECRET_ID`** and **`SF_SSM_PARAMETER_NAME`** are set, **`sf-query`** loads the secret first, then SSM (SSM can override keys if **`SF_AWS_CREDS_OVERRIDE=1`**).
+
+---
+
+### 3B. Option B — Inline PEM in `.env.harness`
+
+1. Copy [`.env.harness.sample`](../.env.harness.sample) to **`.env.harness`**.
+2. Set **`SF_LOGIN_URL`**, **`SF_CLIENT_ID`**, **`SF_USERNAME`**.
+3. Set **one** of: **`SF_PRIVATE_KEY_BODY`** (one line), **`SF_PRIVATE_KEY_FILE=./key.pem`**, or double-quoted multiline **`SF_PRIVATE_KEY`**.  
+   **Never** leave a multiline PEM **unquoted** in dotenv — only the first line is read.
+
+---
+
+### 4. Merge, sync, deploy, push (exact order, Path A)
+
+All paths below are from your machine unless `cd` says otherwise.
+
+| Step | Where to run the command | What to type |
+|------|---------------------------|--------------|
+| 1 | **Repo root** | `./scripts/sync-harness-build-to-agentcore.sh ./salesforceAgent00` |
+| 2 | **Repo root** | `npm run merge-harness-env` |
+| 3 | **Repo root** | `cd salesforceAgent00` |
+| 4 | **`salesforceAgent00/`** | `agentcore deploy` (optional: `agentcore validate` first) |
+| 5 | **`salesforceAgent00/`** | `cd ..` (you are back at **repo root**) |
+| 6 | **Repo root** | Put **`HARNESS_ARN`** in **`.env`** if this is the first deploy (from deploy output or `agentcore status` run inside `salesforceAgent00/`). |
+| 7 | **Repo root** | `npm run push-harness-env` |
+
+What each step does:
+
+- **Sync script** — Copies `agentcore-harness/Dockerfile`, `package.json`, `package-lock.json`, `.harness-salesforce-env.json` stub, and `sf-query.js` into `salesforceAgent00/app/sfHarness00/` so CodeBuild’s `docker build` context is complete.
+- **`merge-harness-env`** — Reads `.env.harness`, updates **`app/sfHarness00/harness.json` → `environmentVariables`**, and writes **`app/sfHarness00/.harness-salesforce-env.json`** (JWT snapshot for the image). If you use **Secrets Manager only**, `harness.json` will contain **`SF_SECRET_ID`** (and optional SSM name), not the PEM.
+- **`agentcore deploy`** — Builds and publishes the **container image** and updates harness infrastructure from **`salesforceAgent00/`**.
+- **`push-harness-env`** — Calls AWS **`UpdateHarness`** so the **control plane** `environmentVariables` match your local `harness.json` (some deploy paths skip this).
+
+After **any** change to `.env.harness` or Salesforce secrets: repeat **merge → (sync if Dockerfile/deps changed) → deploy → push**.
+
+### 5. Run Bolt and test Slack
+
+1. **Repo root**: `npm start`.
+2. In Slack, DM the app or use the assistant thread.
+3. If it still behaves like an old session after credential changes: set **`HARNESS_RUNTIME_SESSION_SALT`** to a new value in **`.env`**, restart `npm start`, or start a **new** Slack thread (see [Runtime session id rules](#runtime-session-id-rules)).
+
+### 6. Before `git commit` (strip local secrets)
+
+From **repo root**:
+
+```bash
+npm run merge-harness-env -- --clear
+```
+
+That removes Salesforce secrets (and AWS pointer keys) from **`harness.json`** and resets **`.harness-salesforce-env.json`** to `{}`. Re-run **merge (without `--clear`)** before the next deploy.
+
+### 7. How `sf-query` resolves credentials (order)
+
+1. **`/app/.harness-salesforce-env.json`** or the copy next to `scripts/sf-query.js` (baked at image build).
+2. If **`SF_SECRET_ID`** / **`SF_SSM_PARAMETER_NAME`** are set → fetch JSON from AWS and merge **`SF_*`** into `process.env`.
+3. Existing **`process.env`** from the platform (when AgentCore injects harness env into the process).
+
+Region for AWS SDK: **`AWS_REGION`** or **`AWS_DEFAULT_REGION`** or **`SF_AWS_REGION`**.
+
+### 8. Local verification (your laptop)
+
+From **repo root**:
+
+```bash
+npm run debug-sf-query -- "SELECT Id FROM User LIMIT 1"
+```
+
+Uses **`harness.json` → `environmentVariables`** and **`SF_QUERY_DEBUG=1`**. Stderr shows `[sf-query]` stages; stdout shows SOQL JSON. If this fails, fix Salesforce JWT or AWS pointers before debugging Slack again.
+
+### 9. Troubleshooting
+
+| Symptom | What to check |
+|---------|----------------|
+| **`SF_AWS_FETCH_ERROR`** or AccessDenied in CloudWatch | Harness **execution role** missing `GetSecretValue` / `GetParameter` / `kms:Decrypt`; wrong region; wrong secret ARN. |
+| **`SF_AWS_REGION_MISSING`** | Set **`AWS_REGION`** on the harness or **`SF_AWS_REGION`** in `harness.json` via merge. |
+| Slack still “missing credentials” but **`debug-sf-query` works** | Stale **runtime session** → bump **`HARNESS_RUNTIME_SESSION_SALT`**, new Slack thread, or wait for session expiry; confirm **`HARNESS_ARN`** matches the harness you deployed. |
+| **`GetHarness`** from **`push-harness-env`** shows zero length for `SF_*` | Wrong harness / wrong account; re-run **push**; confirm **merge** ran. |
 
 ### Debug `sf-query.js`
 
@@ -51,9 +218,9 @@ More context: [agentcore-harness/README.md](../agentcore-harness/README.md) and 
 
 2. **Inside the deployed harness** — add **`SF_QUERY_DEBUG=1`** to **`.env.harness`**, run **`npm run merge-harness-env`**, **`npm run push-harness-env`**, and redeploy the image if `sf-query.js` changed. Tool stderr is **not** shown in the Bolt terminal; open **CloudWatch** (or your AgentCore / runtime log sink) for the harness **session / tool execution** logs and filter for **`[sf-query]`**.
 
-### JWT in the container (`sf-query` remote failures)
+### Why `GetHarness` can show env but Slack still fails
 
-AgentCore may **not** inject harness **`environmentVariables`** into **tool / shell** subprocesses, so `node scripts/sf-query.js` can see empty `SF_*` even when **`GetHarness`** shows them. This repo **bakes** **`app/sfHarness00/.harness-salesforce-env.json`** into the image (written by **`npm run merge-harness-env`**, committed stub **`{}`**) and **`sf-query.js` loads it** before reading `process.env`. After changing Salesforce secrets: **`merge-harness-env`** → **`./scripts/sync-harness-build-to-agentcore.sh ./salesforceAgent00`** (if you use sync) → **`agentcore deploy`** (new image). **`push-harness-env`** remains useful for control-plane parity; the file fixes the tool shell gap.
+AgentCore sometimes does **not** pass harness **`environmentVariables`** into **tool/shell** processes. That is why the detailed guide above uses **Secrets Manager / SSM** and/or the **baked `.harness-salesforce-env.json`** and documents the **resolution order** in **[section 7](#7-how-sf-query-resolves-credentials-order)**.
 
 ### Slack: parallel dev bot (Socket Mode)
 

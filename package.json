@@ -18,6 +18,8 @@
   "dependencies": {
     "@aws-sdk/client-bedrock-agentcore": "^3.1041.0",
     "@aws-sdk/client-bedrock-agentcore-control": "^3.1043.0",
+    "@aws-sdk/client-secrets-manager": "^3.1043.0",
+    "@aws-sdk/client-ssm": "^3.1043.0",
     "@slack/bolt": "^4.7.0",
     "axios": "^1.9.0",
     "dotenv": "~17.4.2",

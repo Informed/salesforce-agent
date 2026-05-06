@@ -2,7 +2,7 @@
 
 This folder is a **standalone Docker build context** for the AgentCore harness (Node + `sf-query.js` + minimal npm deps).
 
-**End-to-end setup (Slack app + first deploy):** [README.md](../README.md) (includes **[Slack tokens and HARNESS_ARN](../README.md#slack-tokens-and-harness-arn)** for `.env`, and **Path A** for sync + **`merge-harness-env`** + deploy). **Harness-only details, IAM, and troubleshooting:** [docs/agentcore-harness.md](../docs/agentcore-harness.md) (see **[Salesforce credentials for the harness](../docs/agentcore-harness.md#salesforce-credentials-for-the-harness)**).
+**End-to-end setup (Slack app + first deploy):** [README.md](../README.md) (includes **[Slack tokens and HARNESS_ARN](../README.md#slack-tokens-and-harness-arn)** for `.env`, and **Path A** for sync + **`merge-harness-env`** + deploy). **Harness-only details, IAM, and troubleshooting:** [docs/agentcore-harness.md](../docs/agentcore-harness.md) — start at **[Step-by-step: Salesforce JWT (detailed)](../docs/agentcore-harness.md#step-by-step-salesforce-jwt-for-agentcore-detailed)**.
 
 ## Why `agentcore deploy` failed with “package-lock.json / scripts/sf-query.js not found”
 
