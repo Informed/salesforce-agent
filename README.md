@@ -72,6 +72,8 @@ Edit `.env` and set at least:
 
 See [`.env.sample`](.env.sample) for the full list.
 
+**AWS Secrets Manager (recommended for production):** create a secret whose value is **JSON** with `SF_CLIENT_ID`, `SF_USERNAME`, `SF_PRIVATE_KEY_BODY` (or `SF_PRIVATE_KEY`), and optional `SF_LOGIN_URL`. In **`.env.harness`** set **`SF_SECRET_ID`** to the secret ARN (and optionally **`SF_AWS_REGION`** if it differs from the harness region). Run **`npm run merge-harness-env`**, **`agentcore deploy`**, then **`npm run push-harness-env`**. Attach **`secretsmanager:GetSecretValue`** on that secret to the **harness execution role**. At runtime **`sf-query.js`** calls **`GetSecretValue`** using the task role. If AgentCore does not inject env into tool processes, pointers are still read from **`.harness-salesforce-env.json`** baked into the image. Full walkthrough: **[Salesforce JWT for AgentCore (detailed)](docs/agentcore-harness.md#step-by-step-salesforce-jwt-for-agentcore-detailed)**.
+
 ### 4. Deploy an AgentCore harness and set `HARNESS_ARN`
 
 Pick **one** path:
@@ -95,6 +97,8 @@ cd ..   # back to repo root
 npm run push-harness-env              # apply harness.json → environmentVariables to AWS; prints GetHarness SF_* **lengths** (no secrets)
 npm run merge-harness-env -- --clear   # optional: strip secrets from harness.json before git commit
 ```
+
+The **CDK stack** under [`salesforceAgent00/agentcore/cdk/`](./salesforceAgent00/agentcore/cdk/) creates a **placeholder** Secrets Manager secret (dummy `SF_*` JSON) and grants the **harness execution role** `GetSecretValue` on it. After deploy, use the stack output **`SalesforceJwtSecretArn`** as **`SF_SECRET_ID`** in `.env.harness`, then replace the secret value with real JWT JSON. Details: [agentcore/cdk README](./salesforceAgent00/agentcore/cdk/README.md).
 
 If those lengths look correct but Slack still says missing `SF_*`, the AgentCore **runtime session** for that Slack thread may be stale: set **`HARNESS_RUNTIME_SESSION_SALT`** to a new value in `.env`, restart `npm start`, and retry (or use a new assistant thread). See [docs/agentcore-harness.md](docs/agentcore-harness.md#runtime-session-id-rules).
 

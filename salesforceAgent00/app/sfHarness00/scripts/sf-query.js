@@ -32,6 +32,20 @@ import jwt from 'jsonwebtoken';
 
 const __dirname_sf = path.dirname(fileURLToPath(import.meta.url));
 
+/** Keys written by `merge-harness-salesforce-env.mjs` into `.harness-salesforce-env.json` (must match merge `fileKeys`). */
+const HARNESS_SALESFORCE_ENV_FILE_KEYS = [
+  'SF_LOGIN_URL',
+  'SF_CLIENT_ID',
+  'SF_USERNAME',
+  'SF_PRIVATE_KEY',
+  'SF_PRIVATE_KEY_BODY',
+  'SF_QUERY_DEBUG',
+  'SF_SECRET_ID',
+  'SF_SSM_PARAMETER_NAME',
+  'SF_AWS_CREDS_OVERRIDE',
+  'SF_AWS_REGION',
+];
+
 /**
  * @returns {{ loaded: boolean; path?: string }}
  */
@@ -47,15 +61,7 @@ function applyHarnessSalesforceEnvFile() {
       if (!raw || raw === '{}') continue;
       const o = JSON.parse(raw);
       if (!o || typeof o !== 'object') continue;
-      const keys = [
-        'SF_LOGIN_URL',
-        'SF_CLIENT_ID',
-        'SF_USERNAME',
-        'SF_PRIVATE_KEY',
-        'SF_PRIVATE_KEY_BODY',
-        'SF_QUERY_DEBUG',
-      ];
-      for (const k of keys) {
+      for (const k of HARNESS_SALESFORCE_ENV_FILE_KEYS) {
         const v = o[k];
         if (typeof v === 'string' && v.length > 0) process.env[k] = v;
       }

@@ -95,6 +95,13 @@ Create a JSON object (minify or pretty-print, both work) with **string** values 
 - **`SF_PRIVATE_KEY_BODY`**: only the base64 between `BEGIN PRIVATE KEY` and `END PRIVATE KEY`, with **no** PEM headers and **no** line breaks inside the value.
 - Use **`https://test.salesforce.com`** for `SF_LOGIN_URL` if the user lives in a sandbox.
 
+**AWS “Salesforce External Client App Credential” / managed Salesforce secret type — use a generic secret instead**  
+Secrets Manager can offer a **partner / predefined** Salesforce shape (documented as [Salesforce Client Secret](https://docs.aws.amazon.com/secretsmanager/latest/userguide/mes-partner-salesforce.html): `consumerKey`, `consumerSecret`, `baseUri`, `appId`, `consumerId`). That format is aimed at **OAuth client credentials** and **rotation**, not at this repo’s **JWT bearer** flow.
+
+`sf-query` needs **`SF_CLIENT_ID`**, **`SF_USERNAME`**, **`SF_PRIVATE_KEY_BODY`** (or PEM), and **`SF_LOGIN_URL`** as the **OAuth login host** (`https://login.salesforce.com` or `https://test.salesforce.com` — the `aud` claim for JWT), not the org **instance** URL (`https://*.my.salesforce.com`) from the AWS template’s `baseUri`. The predefined secret does **not** include integration-user **username** or **certificate private key**, so you **cannot** use that wizard template as a drop-in replacement.
+
+**What to do:** create the secret as **Other type of secret** (or “other”) and paste the **JSON from Step A1** with the **`SF_*`** keys this project expects. You still use **`SF_SECRET_ID`** in `.env.harness` pointing at that secret’s ARN.
+
 **Step A2 — Create the secret in AWS**
 
 1. Open **AWS Console** → **Secrets Manager** (same **Region** as your harness, e.g. `us-west-2`).
@@ -105,9 +112,15 @@ Create a JSON object (minify or pretty-print, both work) with **string** values 
 
 **Step A3 — IAM on the harness execution role**
 
-The **managed harness** runs `sf-query` with an **IAM execution role** (created by AgentCore / CDK). That role must be allowed to read your secret:
+The **managed harness** runs `sf-query` with an **IAM execution role** (created by AgentCore / CDK). That role must be allowed to read your secret.
 
-- Attach an inline or managed policy allowing **`secretsmanager:GetSecretValue`** on **that secret’s ARN** (or a narrow `secret` resource pattern).
+**If you deploy with this repo’s CDK** (when [`agentcore.json`](../salesforceAgent00/agentcore/agentcore.json) has `"managedBy": "CDK"` and you use the stack under [`salesforceAgent00/agentcore/cdk/`](../salesforceAgent00/agentcore/cdk/)): the stack creates a **placeholder** `AWS::SecretsManager::Secret` whose value is dummy `SF_*` JSON (`REPLACE_ME`) and **grants each harness execution role** `secretsmanager:GetSecretValue` and `secretsmanager:DescribeSecret` on that secret. After deploy, use the stack output **`SalesforceJwtSecretArn`** as **`SF_SECRET_ID`** in **`.env.harness`**, then **replace the secret value** in the Secrets Manager console or with `PutSecretValue` using the real JSON from Step A1. To **not** create this secret (for example you already have one), add to **`agentcore.json`**:
+
+```json
+"salesforceJwtSecret": { "skipPlaceholderSecret": true }
+```
+
+**If you use your own secret** (manual console secret or different stack): attach an inline or managed policy allowing **`secretsmanager:GetSecretValue`** on **that secret’s ARN** (or a narrow `secret` resource pattern).
 
 Example statement (replace ARN):
 

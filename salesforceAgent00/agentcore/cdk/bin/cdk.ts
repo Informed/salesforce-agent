@@ -108,11 +108,16 @@ async function main() {
       | Record<string, { credentialProviderArn: string; clientSecretArn?: string }>
       | undefined;
 
+    const skipJwtPlaceholder =
+      (specAny.salesforceJwtSecret as { skipPlaceholderSecret?: boolean } | undefined)?.skipPlaceholderSecret ===
+      true;
+
     new AgentCoreStack(app, stackName, {
       spec,
       mcpSpec,
       credentials,
       harnesses: harnessConfigs.length > 0 ? harnessConfigs : undefined,
+      createSalesforceJwtPlaceholderSecret: skipJwtPlaceholder ? false : undefined,
       env,
       description: `AgentCore stack for ${spec.name} deployed to ${target.name} (${target.region})`,
       tags: {
