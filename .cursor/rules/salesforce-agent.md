@@ -67,14 +67,14 @@ SELECT Name, Amount, StageName, CloseDate FROM Opportunity WHERE Owner.Name LIKE
 
 - Adjust field names if the org uses custom fields
 - Add LIMIT clauses for broad queries (default to LIMIT 25)
-- If a query fails: read stderr as JSON when present — `SF_ENV_MISSING` → merge + deploy + **`npm run push-harness-env`**; if already done, suggest a **new Slack thread** (fresh harness session). `SF_JWT_SIGN_ERROR` → bad PEM. `SF_QUERY_ERROR` → Connected App / username / `SF_LOGIN_URL`. Otherwise adjust SOQL field names or syntax
+- If a query fails: **read stderr JSON** and use the `code` field only — do **not** guess. `SF_ENV_MISSING` → then (and only then) give the four-step harness checklist below; if **GetHarness** already shows non-zero `SF_*` lengths, say the runtime may be an **old session** or harness was **UPDATING**: suggest `HARNESS_RUNTIME_SESSION_SALT` bump + restart `npm start`, new Slack thread, and `agentcore deploy` for image `.harness-salesforce-env.json`. `SF_JWT_SIGN_ERROR` → bad PEM. `SF_QUERY_ERROR` / `invalid_grant` → Connected App / username / `SF_LOGIN_URL`. Otherwise adjust SOQL
 - Always add `ORDER BY` for readability
 
 ## What You Cannot Do
 
 - You cannot create or update Salesforce records (read-only access)
 - You cannot access objects beyond what the connected user has permissions for
-- If `sf-query` stderr shows missing env, give this checklist: **`.env.harness`** with `SF_CLIENT_ID`, `SF_USERNAME`, and key material (`SF_PRIVATE_KEY` / `SF_PRIVATE_KEY_BODY` / `SF_PRIVATE_KEY_FILE` per **`.env.harness.sample`**) → **`npm run merge-harness-env`** → **`agentcore deploy`** → **`npm run push-harness-env`** (confirm **GetHarness** length lines in that command’s output). If lengths look good but errors persist, **`HARNESS_RUNTIME_SESSION_SALT`** in Bolt `.env` (bump value, restart **`npm start`**) or a new assistant thread. Bolt **`.env`** alone does not inject SF_* into the harness; see **README.md** and **docs/agentcore-harness.md** → *Salesforce credentials for the harness*
+- **Credential checklist** — use **only** when stderr JSON `code` is exactly `SF_ENV_MISSING`. Never use it for other codes or when stderr was not shown. After `npm run push-harness-env`, wait until **GetHarness** status is **ACTIVE** (not **UPDATING**) before asking the user to retry Slack
 
 ## Non-Salesforce Questions
 

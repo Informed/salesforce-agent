@@ -32,6 +32,22 @@ import jwt from 'jsonwebtoken';
 
 const __dirname_sf = path.dirname(fileURLToPath(import.meta.url));
 
+// #region agent log
+/** Cursor debug NDJSON (no secrets). Fails silently if ingest unreachable (e.g. harness in AWS). */
+function agentDebugLog(payload) {
+  fetch('http://127.0.0.1:7417/ingest/54303f34-a09e-41f2-a6a2-2ec694aebe32', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '634ffc' },
+    body: JSON.stringify({
+      sessionId: '634ffc',
+      timestamp: Date.now(),
+      runId: process.env.DEBUG_RUN_ID || 'pre',
+      ...payload,
+    }),
+  }).catch(() => {});
+}
+// #endregion
+
 /** Keys written by `merge-harness-salesforce-env.mjs` into `.harness-salesforce-env.json` (must match merge `fileKeys`). */
 const HARNESS_SALESFORCE_ENV_FILE_KEYS = [
   'SF_LOGIN_URL',
@@ -121,6 +137,14 @@ async function loadSalesforceCredentialsFromAws() {
 
   const region = (process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || process.env.SF_AWS_REGION || '').trim();
   if (!region) {
+    // #region agent log
+    agentDebugLog({
+      hypothesisId: 'H5',
+      location: 'sf-query.js:loadSalesforceCredentialsFromAws',
+      message: 'SF_AWS_REGION_MISSING branch',
+      data: { hasSecretId: Boolean(secretId), hasSsm: Boolean(ssmName) },
+    });
+    // #endregion
     console.error(
       JSON.stringify({
         error:
@@ -159,6 +183,18 @@ async function loadSalesforceCredentialsFromAws() {
         process.exit(1);
       }
       mergeSfEnvFromAwsJson(parsed, 'secretsmanager');
+      // #region agent log
+      agentDebugLog({
+        hypothesisId: 'H1',
+        location: 'sf-query.js:secrets-merged',
+        message: 'Secrets Manager JSON merged',
+        data: {
+          placeholderClient: parsed?.SF_CLIENT_ID === 'REPLACE_ME',
+          placeholderUser: parsed?.SF_USERNAME === 'REPLACE_ME',
+          placeholderKeyBody: parsed?.SF_PRIVATE_KEY_BODY === 'REPLACE_ME',
+        },
+      });
+      // #endregion
     }
 
     if (ssmName) {
@@ -187,6 +223,14 @@ async function loadSalesforceCredentialsFromAws() {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     const name = err instanceof Error ? err.name : 'Error';
+    // #region agent log
+    agentDebugLog({
+      hypothesisId: 'H2',
+      location: 'sf-query.js:loadSalesforceCredentialsFromAws-catch',
+      message: 'AWS credential fetch threw',
+      data: { name, msgHead: msg.slice(0, 200) },
+    });
+    // #endregion
     console.error(
       JSON.stringify({
         error: `AWS credential fetch failed: ${msg}`,
@@ -201,6 +245,20 @@ async function loadSalesforceCredentialsFromAws() {
 
 const harnessSalesforceEnvFile = applyHarnessSalesforceEnvFile();
 await loadSalesforceCredentialsFromAws();
+// #region agent log
+agentDebugLog({
+  hypothesisId: 'H2',
+  location: 'sf-query.js:after-aws-load',
+  message: 'harness file + AWS load complete',
+  data: {
+    harnessFileLoaded: harnessSalesforceEnvFile.loaded,
+    hasAwsRegion: Boolean(
+      (process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || process.env.SF_AWS_REGION || '').trim(),
+    ),
+    envHasSecretId: Boolean(process.env.SF_SECRET_ID?.trim()),
+  },
+});
+// #endregion
 
 const SF_LOGIN_URL = process.env.SF_LOGIN_URL || 'https://login.salesforce.com';
 const SF_CLIENT_ID = process.env.SF_CLIENT_ID;
@@ -248,6 +306,27 @@ sfQueryDebug('after_key_resolve', {
   })(),
 });
 
+// #region agent log
+agentDebugLog({
+  hypothesisId: 'H1',
+  location: 'sf-query.js:pre-env-gate',
+  message: 'resolved env before SF_ENV_MISSING gate',
+  data: {
+    clientIdReplaceMe: SF_CLIENT_ID === 'REPLACE_ME',
+    usernameReplaceMe: SF_USERNAME === 'REPLACE_ME',
+    pkBodyEnvReplaceMe: process.env.SF_PRIVATE_KEY_BODY === 'REPLACE_ME',
+    hasPrivateKeyPem: Boolean(SF_PRIVATE_KEY),
+    loginUrlHost: (() => {
+      try {
+        return new URL(SF_LOGIN_URL).hostname;
+      } catch {
+        return 'invalid';
+      }
+    })(),
+  },
+});
+// #endregion
+
 if (!SF_CLIENT_ID || !SF_USERNAME || !SF_PRIVATE_KEY) {
   const missing = [];
   if (!String(SF_CLIENT_ID || '').trim()) missing.push('SF_CLIENT_ID');
@@ -263,6 +342,14 @@ if (!SF_CLIENT_ID || !SF_USERNAME || !SF_PRIVATE_KEY) {
       );
   }
   sfQueryDebug('exit_SF_ENV_MISSING', { missing });
+  // #region agent log
+  agentDebugLog({
+    hypothesisId: 'H2',
+    location: 'sf-query.js:SF_ENV_MISSING',
+    message: 'missing SF JWT env',
+    data: { missing },
+  });
+  // #endregion
   console.error(
     JSON.stringify({
       error: 'Salesforce JWT environment variables are not set in this process.',
@@ -290,6 +377,23 @@ async function authenticate() {
   try {
     assertion = jwt.sign(claim, SF_PRIVATE_KEY, { algorithm: 'RS256' });
     sfQueryDebug('jwt_sign_ok', { assertionLen: assertion.length });
+    // #region agent log
+    agentDebugLog({
+      hypothesisId: 'H3',
+      location: 'sf-query.js:authenticate-post-sign',
+      message: 'JWT signed, about to token POST',
+      data: {
+        loginUrlHost: (() => {
+          try {
+            return new URL(SF_LOGIN_URL).hostname;
+          } catch {
+            return 'invalid';
+          }
+        })(),
+        assertionLen: assertion.length,
+      },
+    });
+    // #endregion
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     sfQueryDebug('jwt_sign_throw', { message: msg.slice(0, 300) });
@@ -387,6 +491,18 @@ async function main() {
       axiosCode: err.code,
       messageHead: String(desc).slice(0, 400),
     });
+    // #region agent log
+    agentDebugLog({
+      hypothesisId: 'H3',
+      location: 'sf-query.js:main-catch',
+      message: 'OAuth or SOQL failed',
+      data: {
+        httpStatus: status ?? null,
+        sfError: data && typeof data === 'object' ? data.error ?? null : null,
+        descHead: String(desc).slice(0, 160),
+      },
+    });
+    // #endregion
     const message = err.response?.data?.error_description || err.response?.data || err.message;
     console.error(
       JSON.stringify({

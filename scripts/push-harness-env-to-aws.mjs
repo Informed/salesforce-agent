@@ -116,6 +116,39 @@ if (!hasAwsPointer) {
   );
 }
 
+/** @param {number} ms */
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Transitional states right after UpdateHarness — a single GetHarness often stays UPDATING. */
+const HARNESS_WAIT_STATUSES = new Set(['UPDATING', 'CREATING']);
+
+/**
+ * @param {import('@aws-sdk/client-bedrock-agentcore-control').BedrockAgentCoreControlClient} controlClient
+ * @param {string} id
+ */
+async function getHarnessWhenStable(controlClient, id) {
+  const pollMs = 3000;
+  const maxWaitMs = 180_000;
+  const t0 = Date.now();
+  let remote = await controlClient.send(new GetHarnessCommand({ harnessId: id }));
+  let status = remote.harness?.status ?? '';
+  while (HARNESS_WAIT_STATUSES.has(status) && Date.now() - t0 < maxWaitMs) {
+    const elapsed = Math.round((Date.now() - t0) / 1000);
+    console.log(`GetHarness: status=${status} — waiting for ACTIVE (${elapsed}s / ${maxWaitMs / 1000}s max)…`);
+    await sleep(pollMs);
+    remote = await controlClient.send(new GetHarnessCommand({ harnessId: id }));
+    status = remote.harness?.status ?? '';
+  }
+  if (HARNESS_WAIT_STATUSES.has(status)) {
+    console.warn(
+      `GetHarness: still ${status} after ${maxWaitMs / 1000}s. AWS may need more time — wait 1–2 minutes, then run \`npm run push-harness-env\` again (no-op update) or \`cd salesforceAgent00 && agentcore status\`.`,
+    );
+  }
+  return remote;
+}
+
 const client = new BedrockAgentCoreControlClient({ region });
 await client.send(
   new UpdateHarnessCommand({
@@ -127,7 +160,7 @@ await client.send(
 console.log(`Updated harness ${harnessId} (${region}) environmentVariables from ${harnessPath}`);
 console.log(`Keys: ${Object.keys(environmentVariables).sort().join(', ')}`);
 
-const remote = await client.send(new GetHarnessCommand({ harnessId }));
+const remote = await getHarnessWhenStable(client, harnessId);
 const arn = remote.harness?.arn;
 const status = remote.harness?.status;
 const remoteEnv = remote.harness?.environmentVariables || {};
