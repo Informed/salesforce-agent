@@ -263,11 +263,28 @@ if (!SF_CLIENT_ID || !SF_USERNAME || !SF_PRIVATE_KEY) {
       );
   }
   sfQueryDebug('exit_SF_ENV_MISSING', { missing });
+  const jwtFilePaths = [
+    '/app/.harness-salesforce-env.json',
+    path.join(__dirname_sf, '..', '.harness-salesforce-env.json'),
+  ];
+  const jwtFileDiag = jwtFilePaths.map((p) => ({ path: p, exists: fs.existsSync(p) }));
+  const imageJwtFileMissing = jwtFileDiag.every((e) => !e.exists);
   console.error(
     JSON.stringify({
       error: 'Salesforce JWT environment variables are not set in this process.',
       code: 'SF_ENV_MISSING',
       missing,
+      diag: {
+        cwd: process.cwd(),
+        scriptDir: __dirname_sf,
+        harnessEnvFile: harnessSalesforceEnvFile,
+        jwtFilePaths: jwtFileDiag,
+        imageJwtFileMissing,
+        hasAwsRegion: Boolean(
+          (process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || process.env.SF_AWS_REGION || '').trim(),
+        ),
+        envPointerSecretId: Boolean(process.env.SF_SECRET_ID?.trim()),
+      },
       hint: 'Set JWT via .env.harness merge, OR SF_SECRET_ID / SF_SSM_PARAMETER_NAME pointing at JSON in Secrets Manager / SSM (see README). Then merge-harness-env, deploy image, push-harness-env. Ensure AWS_REGION and IAM GetSecretValue/GetParameter.',
     }),
   );

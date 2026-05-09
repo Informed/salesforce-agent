@@ -23,9 +23,18 @@ console.log(h.path);
 }
 TARGET="${DEST}/${REL}"
 mkdir -p "${TARGET}/scripts"
-for f in Dockerfile package.json package-lock.json .harness-salesforce-env.json; do
+for f in Dockerfile package.json package-lock.json; do
   cp "${ROOT}/agentcore-harness/${f}" "${TARGET}/"
 done
+# Stub only when absent. `npm run merge-harness-env` overwrites this with real SF_* for the image;
+# copying the harness stub here every time would wipe that snapshot and remote sf-query hits SF_ENV_MISSING.
+HARNESS_ENV_JSON="${TARGET}/.harness-salesforce-env.json"
+if [[ ! -f "${HARNESS_ENV_JSON}" ]]; then
+  cp "${ROOT}/agentcore-harness/.harness-salesforce-env.json" "${HARNESS_ENV_JSON}"
+  echo "note: installed stub ${HARNESS_ENV_JSON} — run npm run merge-harness-env before agentcore deploy."
+else
+  echo "note: left existing ${HARNESS_ENV_JSON} in place (not overwritten by harness stub)."
+fi
 cp "${ROOT}/agentcore-harness/scripts/sf-query.js" "${TARGET}/scripts/"
 echo "Synced harness build files into ${TARGET} (harness path: ${REL})."
 echo "For Salesforce SOQL: copy .env.harness.sample to .env.harness, npm run merge-harness-env [-- ${DEST}], then from ${DEST}: agentcore deploy"
