@@ -136,7 +136,9 @@ async function getHarnessWhenStable(controlClient, id) {
   let status = remote.harness?.status ?? '';
   while (HARNESS_WAIT_STATUSES.has(status) && Date.now() - t0 < maxWaitMs) {
     const elapsed = Math.round((Date.now() - t0) / 1000);
-    console.log(`GetHarness: status=${status} — waiting for ACTIVE (${elapsed}s / ${maxWaitMs / 1000}s max)…`);
+    console.log(
+      `GetHarness: status=${status} — waiting for READY or ACTIVE (${elapsed}s / ${maxWaitMs / 1000}s max)…`,
+    );
     await sleep(pollMs);
     remote = await controlClient.send(new GetHarnessCommand({ harnessId: id }));
     status = remote.harness?.status ?? '';
@@ -168,6 +170,12 @@ const sfKeys = Object.keys(remoteEnv)
   .filter((k) => k.startsWith('SF_'))
   .sort();
 console.log(`GetHarness: status=${status ?? '?'}${arn ? ` arn=${arn}` : ''}`);
+if (status === 'READY' || status === 'ACTIVE') {
+  console.log('Harness env update finished (READY/ACTIVE) — safe to retry Slack after restarting npm start if you changed Bolt code.');
+  console.log(
+    'Slack reuses the same AgentCore session per thread: if sf-query still shows SF_ENV_MISSING in Slack, set HARNESS_RUNTIME_SESSION_SALT in .env to a NEW value, restart npm start, then send your question again (same thread is OK).',
+  );
+}
 if (sfKeys.length === 0) {
   console.warn(
     'WARNING: GetHarness returned no SF_* keys. Wrong harnessId/region/account, API redaction, or update still propagating — re-check HARNESS_ARN and AWS credentials.',
