@@ -18,6 +18,8 @@ RUN npm install --omit=dev --no-audit --no-fund
 
 # JWT for sf-query — `npm run merge-harness-env` overwrites this in app/sfHarness00 before deploy; stub `{}` in git.
 COPY .harness-salesforce-env.json /app/.harness-salesforce-env.json
+# Same SF_* as control plane `environmentVariables` (tracked in app/sfHarness00); sf-query falls back if the dotfile is missing in the tool sandbox.
+COPY harness.json /app/harness.json
 COPY scripts/sf-query.js ./scripts/
 
 # Harness manages the main process; keep a harmless default for local `docker run`.

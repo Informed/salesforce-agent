@@ -32,6 +32,20 @@ import jwt from 'jsonwebtoken';
 
 const __dirname_sf = path.dirname(fileURLToPath(import.meta.url));
 
+/** Keys written by `merge-harness-salesforce-env.mjs` into `.harness-salesforce-env.json` (must match merge `fileKeys`). */
+const HARNESS_SALESFORCE_ENV_FILE_KEYS = [
+  'SF_LOGIN_URL',
+  'SF_CLIENT_ID',
+  'SF_USERNAME',
+  'SF_PRIVATE_KEY',
+  'SF_PRIVATE_KEY_BODY',
+  'SF_QUERY_DEBUG',
+  'SF_SECRET_ID',
+  'SF_SSM_PARAMETER_NAME',
+  'SF_AWS_CREDS_OVERRIDE',
+  'SF_AWS_REGION',
+];
+
 /**
  * @returns {{ loaded: boolean; path?: string }}
  */
@@ -47,15 +61,7 @@ function applyHarnessSalesforceEnvFile() {
       if (!raw || raw === '{}') continue;
       const o = JSON.parse(raw);
       if (!o || typeof o !== 'object') continue;
-      const keys = [
-        'SF_LOGIN_URL',
-        'SF_CLIENT_ID',
-        'SF_USERNAME',
-        'SF_PRIVATE_KEY',
-        'SF_PRIVATE_KEY_BODY',
-        'SF_QUERY_DEBUG',
-      ];
-      for (const k of keys) {
+      for (const k of HARNESS_SALESFORCE_ENV_FILE_KEYS) {
         const v = o[k];
         if (typeof v === 'string' && v.length > 0) process.env[k] = v;
       }
@@ -65,6 +71,40 @@ function applyHarnessSalesforceEnvFile() {
     }
   }
   return { loaded: false };
+}
+
+/**
+ * `harness.json` is tracked and COPY'd to `/app/harness.json`. It mirrors control-plane
+ * `environmentVariables`. When `.harness-salesforce-env.json` is absent or not loaded in a
+ * tool subprocess, merge SF_* from here for keys still unset in `process.env`.
+ * @returns {{ path?: string; keysApplied: number }}
+ */
+function mergeHarnessJsonEnvIntoProcessEnv() {
+  const candidates = ['/app/harness.json', path.join(__dirname_sf, '..', 'harness.json')];
+  for (const p of candidates) {
+    if (!fs.existsSync(p)) continue;
+    try {
+      const raw = fs.readFileSync(p, 'utf8').trim();
+      if (!raw) continue;
+      const doc = JSON.parse(raw);
+      const envVars = doc?.environmentVariables;
+      if (!envVars || typeof envVars !== 'object') continue;
+      let keysApplied = 0;
+      for (const [k, v] of Object.entries(envVars)) {
+        if (!/^SF_[A-Z0-9_]+$/.test(k)) continue;
+        if (typeof v !== 'string' || !v.trim()) continue;
+        const cur = process.env[k];
+        if (cur !== undefined && String(cur).trim() !== '') continue;
+        process.env[k] = v;
+        keysApplied++;
+      }
+      sfQueryDebug('harness_json_env', { path: p, keysApplied });
+      return { path: p, keysApplied };
+    } catch {
+      /* try next path */
+    }
+  }
+  return { path: undefined, keysApplied: 0 };
 }
 
 /**
@@ -194,6 +234,7 @@ async function loadSalesforceCredentialsFromAws() {
 }
 
 const harnessSalesforceEnvFile = applyHarnessSalesforceEnvFile();
+const harnessJsonEnvMerge = mergeHarnessJsonEnvIntoProcessEnv();
 await loadSalesforceCredentialsFromAws();
 
 const SF_LOGIN_URL = process.env.SF_LOGIN_URL || 'https://login.salesforce.com';
@@ -263,6 +304,8 @@ if (!SF_CLIENT_ID || !SF_USERNAME || !SF_PRIVATE_KEY) {
   ];
   const jwtFileDiag = jwtFilePaths.map((p) => ({ path: p, exists: fs.existsSync(p) }));
   const imageJwtFileMissing = jwtFileDiag.every((e) => !e.exists);
+  const harnessJsonPaths = ['/app/harness.json', path.join(__dirname_sf, '..', 'harness.json')];
+  const harnessJsonDiag = harnessJsonPaths.map((p) => ({ path: p, exists: fs.existsSync(p) }));
   console.error(
     JSON.stringify({
       error: 'Salesforce JWT environment variables are not set in this process.',
@@ -272,7 +315,9 @@ if (!SF_CLIENT_ID || !SF_USERNAME || !SF_PRIVATE_KEY) {
         cwd: process.cwd(),
         scriptDir: __dirname_sf,
         harnessEnvFile: harnessSalesforceEnvFile,
+        harnessJsonEnvMerge,
         jwtFilePaths: jwtFileDiag,
+        harnessJsonPaths: harnessJsonDiag,
         imageJwtFileMissing,
         hasAwsRegion: Boolean(
           (process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || process.env.SF_AWS_REGION || '').trim(),
